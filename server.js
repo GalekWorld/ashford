@@ -78,6 +78,10 @@ function getAdminToken() {
   return process.env.ADMIN_TOKEN || 'ashford-admin-token';
 }
 
+function getWhatsAppVerifyToken() {
+  return process.env.WHATSAPP_VERIFY_TOKEN || 'ashford_verify_token_123';
+}
+
 function getPgConfig() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
@@ -776,6 +780,81 @@ app.get('/api/admin/config', adminAuth, asyncHandler(async (_req, res) => {
 app.patch('/api/admin/config', adminAuth, asyncHandler(async (req, res) => {
   await upsertConfigEntries(Object.entries(req.body));
   res.json({ ok: true, config: await getConfigMap() });
+}));
+
+app.get('/api/whatsapp/webhook', asyncHandler(async (req, res) => {
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+
+  if (mode === 'subscribe' && token === getWhatsAppVerifyToken()) {
+    return res.status(200).type('text/plain').send(String(challenge || ''));
+  }
+
+  return res.status(403).json({ error: 'Token de verificacion invalido' });
+}));
+
+app.post('/api/whatsapp/webhook', asyncHandler(async (req, res) => {
+  const entries = Array.isArray(req.body?.entry) ? req.body.entry : [];
+
+  for (const entry of entries) {
+    const changes = Array.isArray(entry?.changes) ? entry.changes : [];
+
+    for (const change of changes) {
+      const value = change?.value || {};
+      const statuses = Array.isArray(value.statuses) ? value.statuses : [];
+      const messages = Array.isArray(value.messages) ? value.messages : [];
+
+      for (const status of statuses) {
+        const statusPayload = {
+          whatsapp_message_id: status.id || '',
+          recipient_id: status.recipient_id || '',
+          status: status.status || '',
+          timestamp: status.timestamp || '',
+          raw: status,
+        };
+
+        await query(
+          `INSERT INTO change_logs (id, entity_type, entity_id, field_changed, old_value, new_value, changed_by)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [
+            uid(),
+            'whatsapp_status',
+            status.id || uid(),
+            'status',
+            '',
+            JSON.stringify(statusPayload),
+            'whatsapp_webhook',
+          ]
+        );
+      }
+
+      for (const message of messages) {
+        const inboundPayload = {
+          from: message.from || '',
+          type: message.type || '',
+          text: message.text?.body || '',
+          raw: message,
+        };
+
+        await query(
+          `INSERT INTO change_logs (id, entity_type, entity_id, field_changed, old_value, new_value, changed_by)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [
+            uid(),
+            'whatsapp_inbound',
+            message.id || uid(),
+            'message',
+            '',
+            JSON.stringify(inboundPayload),
+            'whatsapp_webhook',
+          ]
+        );
+      }
+    }
+  }
+
+  res.status(200).json({ ok: true });
 }));
 
 app.post('/api/webhooks/inbound', asyncHandler(async (req, res) => {
