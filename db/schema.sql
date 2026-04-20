@@ -84,6 +84,9 @@ CREATE TABLE IF NOT EXISTS notification_queue (
   payload TEXT,
   status TEXT DEFAULT 'pending',
   attempts INTEGER DEFAULT 0,
+  provider_message_id TEXT,
+  error_message TEXT,
+  response_payload TEXT,
   last_attempt TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   CONSTRAINT fk_notification_queue_appointment FOREIGN KEY (appointment_id) REFERENCES appointments(id)

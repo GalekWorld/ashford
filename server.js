@@ -129,6 +129,9 @@ async function initDb() {
   const schemaPath = path.join(__dirname, 'db', 'schema.sql');
   const schemaSql = fs.readFileSync(schemaPath, 'utf8');
   await query(schemaSql);
+  await query('ALTER TABLE notification_queue ADD COLUMN IF NOT EXISTS provider_message_id TEXT');
+  await query('ALTER TABLE notification_queue ADD COLUMN IF NOT EXISTS error_message TEXT');
+  await query('ALTER TABLE notification_queue ADD COLUMN IF NOT EXISTS response_payload TEXT');
   await seedData();
 }
 
@@ -185,12 +188,13 @@ async function logChange(entityType, entityId, field, oldValue, newValue, by = '
 }
 
 async function queueNotification(appointmentId, type, channel, recipient, payload) {
+  const notificationId = uid();
   await query(
     `INSERT INTO notification_queue (id, appointment_id, type, channel, recipient, payload)
      VALUES ($1, $2, $3, $4, $5, $6)`,
-    [uid(), appointmentId, type, channel, recipient, JSON.stringify(payload)]
+    [notificationId, appointmentId, type, channel, recipient, JSON.stringify(payload)]
   );
-  NotificationService.dispatch({ appointmentId, type, channel, recipient, payload }).catch((error) => {
+  NotificationService.dispatch({ notificationId, appointmentId, type, channel, recipient, payload }).catch((error) => {
     console.error(`[notify:${channel}] failed`, error.message);
   });
 }
@@ -215,6 +219,53 @@ async function getConfigMap() {
 
 function getBusinessNotificationPhone(config) {
   return normalizePhoneNumber(process.env.WHATSAPP_NOTIFY_TO || config.business_whatsapp || '');
+}
+
+function getWhatsAppTemplateName(payload = {}) {
+  return payload.template_name || process.env.WHATSAPP_TEMPLATE_NAME || '';
+}
+
+function getWhatsAppTemplateLanguage(payload = {}) {
+  return payload.template_language || process.env.WHATSAPP_TEMPLATE_LANGUAGE || 'es';
+}
+
+function buildWhatsAppTemplatePayload(to, payload = {}) {
+  const templateName = getWhatsAppTemplateName(payload);
+  if (!templateName) return null;
+
+  const body = {
+    messaging_product: 'whatsapp',
+    to,
+    type: 'template',
+    template: {
+      name: templateName,
+      language: { code: getWhatsAppTemplateLanguage(payload) },
+    },
+  };
+
+  const templateParams = Array.isArray(payload.template_params) ? payload.template_params.filter((item) => item !== undefined && item !== null && String(item) !== '') : [];
+  if (templateParams.length) {
+    body.template.components = [
+      {
+        type: 'body',
+        parameters: templateParams.map((value) => ({ type: 'text', text: String(value) })),
+      },
+    ];
+  }
+
+  return body;
+}
+
+async function updateNotificationRecord(notificationId, changes) {
+  const fields = [];
+  const values = [];
+  for (const [key, value] of Object.entries(changes)) {
+    values.push(value);
+    fields.push(`${key} = $${values.length}`);
+  }
+  if (!fields.length) return;
+  values.push(notificationId);
+  await query(`UPDATE notification_queue SET ${fields.join(', ')} WHERE id = $${values.length}`, values);
 }
 
 async function getServiceRecord(input) {
@@ -376,11 +427,12 @@ async function upsertConfigEntries(entries) {
 }
 
 const NotificationService = {
-  async dispatch({ appointmentId, type, channel, recipient, payload }) {
+  async dispatch({ notificationId, appointmentId, type, channel, recipient, payload }) {
     try {
+      let providerResult = null;
       switch (channel) {
         case 'whatsapp':
-          await this.sendWhatsApp(recipient, payload);
+          providerResult = await this.sendWhatsApp(recipient, payload);
           break;
         case 'email':
           console.log(`[notify:email] ${type}`, payload);
@@ -392,21 +444,61 @@ const NotificationService = {
           console.log(`[notify:${channel}] ${type}`, payload);
       }
 
-      await query(
-        `UPDATE notification_queue
-         SET status = 'sent', last_attempt = NOW()
-         WHERE appointment_id = $1 AND type = $2 AND channel = $3`,
-        [appointmentId, type, channel]
-      );
+      await updateNotificationRecord(notificationId, {
+        status: 'sent',
+        last_attempt: new Date(),
+        provider_message_id: providerResult?.providerMessageId || null,
+        response_payload: providerResult ? JSON.stringify(providerResult) : null,
+        error_message: null,
+      });
     } catch (error) {
       await query(
         `UPDATE notification_queue
-         SET status = 'failed', attempts = attempts + 1, last_attempt = NOW()
-         WHERE appointment_id = $1 AND type = $2 AND channel = $3`,
-        [appointmentId, type, channel]
+         SET status = 'failed',
+             attempts = attempts + 1,
+             last_attempt = NOW(),
+             error_message = $2,
+             response_payload = $3
+         WHERE id = $1`,
+        [
+          notificationId,
+          error.message,
+          error.meta ? JSON.stringify(error.meta) : null,
+        ]
       );
       throw error;
     }
+  },
+
+  async callWhatsAppApi(body, accessToken, phoneNumberId) {
+    const response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    const rawText = await response.text();
+    let parsed = null;
+    try {
+      parsed = rawText ? JSON.parse(rawText) : null;
+    } catch (_error) {
+      parsed = rawText || null;
+    }
+
+    if (!response.ok) {
+      const error = new Error(
+        parsed?.error?.message
+          ? `WhatsApp API error ${response.status}: ${parsed.error.message}`
+          : `WhatsApp API error ${response.status}: ${rawText}`
+      );
+      error.meta = parsed || rawText;
+      throw error;
+    }
+
+    return parsed;
   },
 
   async sendWhatsApp(recipient, payload) {
@@ -421,28 +513,38 @@ const NotificationService = {
       throw new Error('Destinatario de WhatsApp no valido');
     }
 
-    const response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
+    const textBody = {
+      messaging_product: 'whatsapp',
+      to,
+      type: 'text',
+      text: {
+        body: payload.message || payload.subject || 'Nueva notificacion de Ashford',
       },
-      body: JSON.stringify({
-        messaging_product: 'whatsapp',
-        to,
-        type: 'text',
-        text: {
-          body: payload.message || payload.subject || 'Nueva notificacion de Ashford',
-        },
-      }),
-    });
+    };
 
-    if (!response.ok) {
-      const details = await response.text();
-      throw new Error(`WhatsApp API error ${response.status}: ${details}`);
+    const templateBody = buildWhatsAppTemplatePayload(to, payload);
+    const forceTemplate = payload.use_template === true || process.env.WHATSAPP_USE_TEMPLATES === '1';
+
+    try {
+      const result = await this.callWhatsAppApi(forceTemplate && templateBody ? templateBody : textBody, accessToken, phoneNumberId);
+      return {
+        mode: forceTemplate && templateBody ? 'template' : 'text',
+        providerMessageId: result?.messages?.[0]?.id || '',
+        response: result,
+      };
+    } catch (error) {
+      const mayNeedTemplate = /outside the allowed window|template|re-engagement|free-form|24 hour|24-hour/i.test(error.message);
+      if (templateBody && !forceTemplate && mayNeedTemplate) {
+        const templateResult = await this.callWhatsAppApi(templateBody, accessToken, phoneNumberId);
+        return {
+          mode: 'template',
+          providerMessageId: templateResult?.messages?.[0]?.id || '',
+          response: templateResult,
+          fallback_from: 'text',
+        };
+      }
+      throw error;
     }
-
-    return response.json();
   },
 };
 
@@ -513,6 +615,12 @@ app.post('/api/appointments', asyncHandler(async (req, res) => {
   if (notifyTo) {
     await queueNotification(id, 'new_appointment_barber', 'whatsapp', notifyTo, {
       message: `Nueva cita solicitada: ${name} - ${serviceRecord.name} - ${date} ${time}`,
+      use_template: process.env.WHATSAPP_USE_TEMPLATES === '1',
+      template_name: getWhatsAppTemplateName({
+        template_name: process.env.WHATSAPP_TEMPLATE_NAME || 'cita_peluquero_info',
+      }),
+      template_language: process.env.WHATSAPP_TEMPLATE_LANGUAGE || 'es',
+      template_params: [name, serviceRecord.name, date, time, phone],
     });
   }
   if (config.business_email) {
@@ -731,11 +839,13 @@ app.patch('/api/admin/appointments/:id', adminAuth, asyncHandler(async (req, res
     if (updated.status === 'confirmed') {
       await queueNotification(updated.id, 'appointment_confirmed', 'whatsapp', updated.phone, {
         message: `Tu cita en Ashford esta confirmada para ${updated.date} a las ${updated.time}.`,
+        use_template: false,
       });
     }
     if (updated.status === 'cancelled') {
       await queueNotification(updated.id, 'appointment_cancelled', 'whatsapp', updated.phone, {
         message: `Tu cita en Ashford del ${updated.date} a las ${updated.time} ha sido cancelada.`,
+        use_template: false,
       });
     }
   }
@@ -783,6 +893,51 @@ app.get('/api/admin/logs', adminAuth, asyncHandler(async (_req, res) => {
 
 app.get('/api/admin/notifications', adminAuth, asyncHandler(async (_req, res) => {
   res.json(await queryAll('SELECT * FROM notification_queue ORDER BY created_at DESC LIMIT 50'));
+}));
+
+app.post('/api/admin/test-whatsapp', adminAuth, asyncHandler(async (req, res) => {
+  const config = await getConfigMap();
+  const to = normalizePhoneNumber(req.body?.to || getBusinessNotificationPhone(config));
+  if (!to) {
+    return res.status(400).json({ error: 'No hay numero de destino configurado para WhatsApp.' });
+  }
+
+  const templateName = getWhatsAppTemplateName(req.body || {});
+  const defaultMessage = req.body?.message || 'Prueba de WhatsApp desde Ashford. Si recibes este mensaje, la integracion esta funcionando.';
+  const result = await NotificationService.sendWhatsApp(to, {
+    message: defaultMessage,
+    use_template: req.body?.use_template === true || Boolean(templateName),
+    template_name: templateName,
+    template_language: req.body?.template_language,
+    template_params: Array.isArray(req.body?.template_params) ? req.body.template_params : [],
+  });
+
+  const referenceAppointmentId = req.body?.appointment_id || (await queryOne('SELECT id FROM appointments ORDER BY created_at DESC LIMIT 1'))?.id || null;
+  if (referenceAppointmentId) {
+    await query(
+      `INSERT INTO notification_queue (id, appointment_id, type, channel, recipient, payload, status, provider_message_id, response_payload, last_attempt)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+      [
+        uid(),
+        referenceAppointmentId,
+        'manual_whatsapp_test',
+        'whatsapp',
+        to,
+        JSON.stringify({ message: defaultMessage, template_name: templateName || '' }),
+        'sent',
+        result.providerMessageId || null,
+        JSON.stringify(result),
+      ]
+    );
+  } else {
+    await logChange('whatsapp_test', uid(), 'result', '', JSON.stringify(result), 'admin');
+  }
+
+  res.json({
+    ok: true,
+    to,
+    ...result,
+  });
 }));
 
 app.get('/api/admin/config', adminAuth, asyncHandler(async (_req, res) => {

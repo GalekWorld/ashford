@@ -291,6 +291,17 @@
       min-height: 168px;
       align-content: start;
     }
+    .integration-stack { display: grid; gap: 18px; width: 100%; }
+    .integration-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+    .notification-feed { display: grid; gap: 12px; }
+    .notification-item { border: 1px solid rgba(0,0,0,0.08); border-radius: 16px; padding: 14px; background: white; }
+    .notification-item strong { display: block; margin-bottom: 6px; }
+    .notification-meta { display: flex; flex-wrap: wrap; gap: 8px; color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+    .status-pill { display: inline-flex; border-radius: 999px; padding: 6px 10px; font-size: 12px; font-weight: 700; }
+    .status-pill.sent { background: rgba(16, 185, 129, 0.12); color: #047857; }
+    .status-pill.failed { background: rgba(239, 68, 68, 0.12); color: #b91c1c; }
+    .status-pill.pending { background: rgba(245, 158, 11, 0.12); color: #b45309; }
+    .code-inline { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; padding: 3px 6px; border-radius: 8px; background: rgba(0,0,0,0.05); word-break: break-all; }
     .integration-card strong {
       font-size: 18px;
       line-height: 1.2;
@@ -663,10 +674,31 @@
 
         <div class="admin-view" id="view-integrations">
           <div class="admin-page-title" style="margin-bottom:22px;">Integraciones</div>
-          <div class="integrations-grid">
-            <div class="panel-card"><div class="integration-card"><strong>WhatsApp API</strong><p class="panel-help">Preparado para conectar confirmaciones, recordatorios y mensajes transaccionales con una presentación limpia en cualquier pantalla.</p></div></div>
-            <div class="panel-card"><div class="integration-card"><strong>Email</strong><p class="panel-help">Preparado para avisos al negocio y confirmaciones al cliente, con configuración centralizada desde el panel.</p></div></div>
-            <div class="panel-card"><div class="integration-card"><strong>n8n</strong><p class="panel-help">Webhook disponible para automatizaciones externas y procesos internos sin romper el layout móvil.</p></div></div>
+          <div class="integration-stack">
+            <div class="panel-card">
+              <div class="integration-card">
+                <strong>WhatsApp API</strong>
+                <p class="panel-help">Puedes lanzar una prueba real y revisar el ultimo resultado devuelto por Meta. Si el negocio inicia la conversacion, normalmente necesitaras una plantilla aprobada.</p>
+                <div class="integration-actions">
+                  <button class="btn-primary" onclick="sendWhatsAppTest()">Enviar prueba de WhatsApp</button>
+                  <button class="btn-secondary" onclick="loadNotifications()">Actualizar estados</button>
+                </div>
+                <div class="panel-help" id="whatsapp-test-result" style="margin-top:12px;">Sin pruebas recientes en esta sesion.</div>
+              </div>
+            </div>
+            <div class="integrations-grid">
+              <div class="panel-card"><div class="integration-card"><strong>Email</strong><p class="panel-help">Preparado para avisos al negocio y confirmaciones al cliente, con configuración centralizada desde el panel.</p></div></div>
+              <div class="panel-card"><div class="integration-card"><strong>n8n</strong><p class="panel-help">Webhook disponible para automatizaciones externas y procesos internos sin romper el layout móvil.</p></div></div>
+            </div>
+            <div class="panel-card">
+              <div class="panel-card-header" style="padding:0 0 16px 0; border-bottom:none;">
+                <div>
+                  <div class="panel-card-title" style="font-size:22px;">Historial de notificaciones</div>
+                  <div class="panel-help">Aqui veras si los avisos quedan enviados o fallidos y el error real cuando Meta rechaza el mensaje.</div>
+                </div>
+              </div>
+              <div id="notifications-list"></div>
+            </div>
           </div>
         </div>
       </main>
@@ -720,6 +752,7 @@ const state = {
   faqs: [],
   businessInfo: {},
   appointments: [],
+  notifications: [],
   stats: null,
   isLoggedIn: false,
   currentDetailId: null,
@@ -738,6 +771,13 @@ function formatDate(value) {
   if (!value) return '-';
   const [year, month, day] = value.split('-');
   return `${day}/${month}/${year}`;
+}
+
+function formatDateTime(value) {
+  if (!value) return '-';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return String(value);
+  return parsed.toLocaleString('es-ES');
 }
 
 function showToast(message, type = 'success') {
@@ -784,6 +824,32 @@ function getServiceById(id) {
 
 function getAdminServiceById(id) {
   return state.adminServices.find((service) => service.id === id) || null;
+}
+
+function renderNotifications() {
+  const container = document.getElementById('notifications-list');
+  if (!container) return;
+  if (!state.notifications.length) {
+    container.innerHTML = '<div class="empty-state">Todavia no hay notificaciones registradas.</div>';
+    return;
+  }
+
+  container.innerHTML = `<div class="notification-feed">
+    ${state.notifications.map((item) => `
+      <div class="notification-item">
+        <div class="notification-meta">
+          <span class="status-pill ${esc(item.status || 'pending')}">${esc(item.status || 'pending')}</span>
+          <span>${esc(item.type || 'notificacion')}</span>
+          <span>${esc(item.channel || '-')}</span>
+          <span>${esc(item.recipient || '-')}</span>
+          <span>${esc(formatDateTime(item.last_attempt || item.created_at))}</span>
+        </div>
+        <strong>${esc(item.type || 'Notificacion')}</strong>
+        ${item.provider_message_id ? `<div class="code-inline" style="margin-bottom:8px;">${esc(item.provider_message_id)}</div>` : ''}
+        <div class="panel-help">${esc(item.error_message || 'Sin errores registrados.')}</div>
+      </div>
+    `).join('')}
+  </div>`;
 }
 
 function getBusinessFormRefs() {
@@ -1075,15 +1141,17 @@ async function loadPublicData() {
 }
 
 async function loadAdminData() {
-  const [appointments, stats, configRows, services] = await Promise.all([
+  const [appointments, stats, configRows, services, notifications] = await Promise.all([
     adminApi('/api/admin/appointments'),
     adminApi('/api/admin/stats'),
     adminApi('/api/admin/config'),
     adminApi('/api/admin/services'),
+    adminApi('/api/admin/notifications'),
   ]);
   state.appointments = appointments;
   state.stats = stats;
   state.adminServices = services;
+  state.notifications = notifications;
   state.businessInfo = { ...state.businessInfo, ...normalizeBusinessInfo(configRows) };
   fillBusinessForm();
   setSidebarBusinessInfo();
@@ -1091,6 +1159,37 @@ async function loadAdminData() {
   renderAppointmentsTable();
   updatePendingBadge();
   renderAdminServices();
+  renderNotifications();
+}
+
+async function loadNotifications() {
+  try {
+    state.notifications = await adminApi('/api/admin/notifications');
+    renderNotifications();
+    showToast('Historial de notificaciones actualizado.');
+  } catch (error) {
+    showToast(error.message, 'error');
+  }
+}
+
+async function sendWhatsAppTest() {
+  const resultEl = document.getElementById('whatsapp-test-result');
+  if (resultEl) resultEl.textContent = 'Enviando prueba de WhatsApp...';
+
+  try {
+    const result = await adminApi('/api/admin/test-whatsapp', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+    if (resultEl) {
+      resultEl.innerHTML = `Prueba enviada a <strong>${esc(result.to)}</strong>. Modo: <strong>${esc(result.mode || 'text')}</strong>${result.providerMessageId ? ` · ID: <span class="code-inline">${esc(result.providerMessageId)}</span>` : ''}`;
+    }
+    await loadNotifications();
+    showToast('Prueba de WhatsApp enviada.');
+  } catch (error) {
+    if (resultEl) resultEl.textContent = error.message;
+    showToast(error.message, 'error');
+  }
 }
 
 function openLoginModal() {
@@ -1156,6 +1255,7 @@ function switchView(name, element) {
   if (name === 'appointments') renderAppointmentsTable();
   if (name === 'business') fillBusinessForm();
   if (name === 'services') renderAdminServices();
+  if (name === 'integrations') renderNotifications();
 }
 
 function updateTodayLabel() {
