@@ -1,0 +1,7 @@
+node_modules/
+.env
+ashford.db
+ashford.db-shm
+ashford.db-wal
+.DS_Store
+Thumbs.db

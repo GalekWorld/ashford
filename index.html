@@ -1,0 +1,1468 @@
+﻿<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ashford Barberia</title>
+  <style>
+    :root {
+      --bg: #f3efe8;
+      --paper: #fffdf8;
+      --ink: #1d1a17;
+      --muted: #6d655d;
+      --line: #d8cfc3;
+      --brand: #a47b32;
+      --brand-dark: #7c5b1e;
+      --danger: #a14b4b;
+      --success: #2f7a5d;
+      --shadow: 0 20px 50px rgba(23, 17, 10, 0.12);
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+    body {
+      margin: 0;
+      font-family: Georgia, 'Times New Roman', serif;
+      background: linear-gradient(180deg, #f7f2ea 0%, #efe7da 100%);
+      color: var(--ink);
+    }
+    button, input, select, textarea { font: inherit; }
+    button, input, select, textarea, .form-group, .form-grid > * { min-width: 0; }
+    .page { display: none; width: 100%; max-width: 100%; overflow-x: hidden; }
+    .page.active { display: block; }
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 28px;
+      border-bottom: 1px solid rgba(0,0,0,0.08);
+      backdrop-filter: blur(12px);
+      background: rgba(255, 251, 244, 0.84);
+    }
+    .brand { font-size: 28px; letter-spacing: 0.18em; text-transform: uppercase; }
+    .brand span { color: var(--brand); }
+    .nav-links { display: flex; gap: 12px; }
+    .nav-links button, .btn-primary, .btn-secondary, .action-btn, .form-submit, .btn-login, .btn-cancel {
+      border: none;
+      border-radius: 999px;
+      padding: 12px 18px;
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
+    .nav-links button, .btn-secondary, .btn-cancel { background: white; color: var(--ink); border: 1px solid var(--line); }
+    .btn-primary, .form-submit, .btn-login, .action-btn.accept {
+      background: var(--ink);
+      color: white;
+    }
+    .btn-primary:hover, .form-submit:hover, .btn-login:hover, .action-btn.accept:hover { background: #000; }
+    .hero {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 28px;
+      padding: 56px 28px 36px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .hero-card, .panel-card, .stat-card, .modal, .detail-box, .booking-card {
+      background: var(--paper);
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+    }
+    .hero-copy {
+      padding: 44px;
+      background: radial-gradient(circle at top left, rgba(164,123,50,0.18), transparent 45%), var(--paper);
+    }
+    .eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: 0.22em; color: var(--muted); }
+    .hero-copy h1 { font-size: 62px; line-height: 0.95; margin: 16px 0; }
+    .hero-copy p { font-size: 18px; line-height: 1.7; color: var(--muted); max-width: 640px; }
+    .hero-actions { display: flex; gap: 14px; margin-top: 28px; flex-wrap: wrap; }
+    .hero-side {
+      padding: 28px;
+      display: grid;
+      gap: 18px;
+      background: linear-gradient(180deg, rgba(164,123,50,0.12), rgba(255,255,255,0.8));
+    }
+    .hero-side h3, .panel-card-title, .admin-page-title { margin: 0; font-size: 28px; }
+    .service-list { display: grid; gap: 12px; }
+    .service-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 16px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.72);
+      border: 1px solid rgba(0,0,0,0.06);
+    }
+    .service-item small { display: block; color: var(--muted); margin-top: 4px; }
+    .booking-wrap, .page-shell {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 16px 28px 48px;
+      width: 100%;
+    }
+    .section-header { margin-bottom: 22px; }
+    .section-header h2 { font-size: 42px; margin: 8px 0; }
+    .section-sub, .form-note, .panel-help { color: var(--muted); line-height: 1.6; }
+    .booking-card { padding: 28px; }
+    .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+    .form-group { display: flex; flex-direction: column; gap: 8px; }
+    .form-group.full { grid-column: 1 / -1; }
+    .form-label { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+    .form-input, .form-select, .form-textarea, .filter-input, .filter-select {
+      width: 100%;
+      padding: 14px 16px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: white;
+      color: var(--ink);
+      font-size: 16px;
+      line-height: 1.2;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+    input[type="date"] {
+      min-height: 52px;
+      max-width: 100%;
+      padding-right: 14px;
+    }
+    .form-textarea { min-height: 120px; resize: vertical; }
+    .price-display {
+      padding: 14px 16px;
+      border-radius: 14px;
+      background: #fbf3e0;
+      border: 1px solid #ead7ad;
+      color: var(--brand-dark);
+      font-size: 24px;
+      font-weight: 600;
+    }
+    .form-submit { width: 100%; margin-top: 20px; font-size: 16px; }
+    .admin-layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); min-height: 100vh; width: 100%; max-width: 100%; overflow-x: hidden; }
+    .sidebar {
+      background: #1d1813;
+      color: rgba(255,255,255,0.82);
+      padding: 28px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .sidebar-logo { font-size: 26px; letter-spacing: 0.18em; text-transform: uppercase; }
+    .sidebar-logo span { color: #dbb15d; }
+    .sidebar-section { font-size: 11px; text-transform: uppercase; letter-spacing: 0.16em; color: rgba(255,255,255,0.45); }
+    .sidebar-nav { display: grid; gap: 10px; }
+    .sidebar-item, .sidebar-logout {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: rgba(255,255,255,0.05);
+      color: inherit;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      padding: 12px 14px;
+      cursor: pointer;
+    }
+    .sidebar-item.active { background: rgba(219,177,93,0.18); border-color: rgba(219,177,93,0.35); }
+    .sidebar-badge, .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 26px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+    }
+    .sidebar-badge { background: #dbb15d; color: #1d1813; }
+    .sidebar-footer { margin-top: auto; display: grid; gap: 12px; }
+    .sidebar-user {
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 12px 14px;
+      background: rgba(255,255,255,0.04);
+    }
+    .admin-main {
+      padding: 30px;
+      min-width: 0;
+      width: 100%;
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+    .mobile-admin-nav {
+      display: none;
+      gap: 10px;
+      overflow-x: auto;
+      padding: 4px 2px 16px;
+      margin-bottom: 14px;
+      scrollbar-width: none;
+    }
+    .mobile-admin-nav::-webkit-scrollbar { display: none; }
+    .mobile-admin-nav button {
+      white-space: nowrap;
+      background: white;
+      color: var(--ink);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 10px 14px;
+      cursor: pointer;
+      flex: 0 0 auto;
+      box-shadow: 0 8px 24px rgba(23, 17, 10, 0.06);
+    }
+    .mobile-admin-nav button.active {
+      background: var(--ink);
+      color: white;
+      border-color: var(--ink);
+    }
+    .admin-view {
+      display: none;
+      min-width: 0;
+      width: 100%;
+      max-width: 100%;
+    }
+    .admin-view.active { display: block; }
+    .admin-topbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 22px; }
+    .admin-date { color: var(--muted); }
+    .stats-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; margin-bottom: 22px; }
+    .stat-card { padding: 20px; }
+    .stat-card-label { display: block; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; }
+    .stat-card-value { display: block; margin-top: 10px; font-size: 36px; }
+    .panel-card, .booking-card, .stat-card, .modal, .detail-box {
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+    }
+    .panel-card { overflow: hidden; }
+    .panel-card-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 18px 20px; border-bottom: 1px solid rgba(0,0,0,0.06); }
+    #today-list, #appointments-table-wrap { padding: 16px 20px 20px; }
+    .filters-bar { display: flex; gap: 10px; flex-wrap: wrap; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 14px 10px; border-bottom: 1px solid rgba(0,0,0,0.06); text-align: left; vertical-align: top; }
+    th { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+    .action-btn { padding: 8px 12px; border-radius: 999px; margin-right: 6px; margin-bottom: 6px; font-size: 12px; }
+    .action-btn.edit { background: white; border: 1px solid var(--line); color: var(--ink); }
+    .action-btn.reject { background: #f8e0e0; color: #7d2c2c; }
+    .action-btn.done { background: #e0f1e8; color: #215c47; }
+    .badge-new { background: #f4e6c5; color: #7f5b17; }
+    .badge-pending { background: #e7e1fb; color: #533e98; }
+    .badge-confirmed { background: #dbf2e5; color: #226145; }
+    .badge-cancelled { background: #f8dddd; color: #842e2e; }
+    .badge-done { background: #ddeaf7; color: #24517d; }
+    .channel-badge { display: inline-flex; border-radius: 999px; padding: 6px 10px; font-size: 12px; background: #efe8da; }
+    .channel-whatsapp { background: #def4e8; }
+    .channel-phone { background: #e7eff8; }
+    .empty-state { padding: 28px; text-align: center; color: var(--muted); }
+    .service-admin-grid { display: grid; grid-template-columns: minmax(0, 360px) minmax(0, 1fr); gap: 18px; width: 100%; }
+    .service-list-admin { display: grid; gap: 12px; }
+    .service-list-item {
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 16px;
+      padding: 14px 16px;
+      background: white;
+    }
+    .service-list-item h4 { margin: 0 0 6px 0; font-size: 18px; }
+    .service-list-item p { margin: 0 0 10px 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+    .service-meta { display: flex; gap: 10px; flex-wrap: wrap; color: var(--muted); font-size: 12px; }
+    .admin-form-card {
+      max-width: 720px;
+    }
+    .business-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 24px;
+      max-width: 980px;
+      width: 100%;
+    }
+    .integrations-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+      width: 100%;
+    }
+    .integration-card {
+      padding: 20px;
+      display: grid;
+      gap: 10px;
+      min-height: 168px;
+      align-content: start;
+    }
+    .integration-card strong {
+      font-size: 18px;
+      line-height: 1.2;
+    }
+    .modal-backdrop, .detail-modal {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(10, 8, 6, 0.55);
+      z-index: 100;
+      padding: 18px;
+    }
+    .modal-backdrop.open, .detail-modal.open { display: flex; }
+    .modal, .detail-box { width: 100%; max-width: 640px; padding: 24px; max-height: min(92vh, 900px); overflow: auto; }
+    .modal-header, .detail-box-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .modal-title, .detail-box-title { font-size: 28px; margin: 0; }
+    .modal-sub { color: var(--muted); }
+    .modal-body { padding: 20px 0; }
+    .modal-footer, .detail-footer { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; padding-top: 14px; }
+    .detail-body { padding: 18px 0; }
+    .detail-close { background: none; border: none; font-size: 28px; cursor: pointer; }
+    #login-error.show { display: block !important; }
+    .toast {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      min-width: 280px;
+      max-width: 420px;
+      padding: 14px 18px;
+      border-radius: 14px;
+      background: #1f1a15;
+      color: white;
+      box-shadow: var(--shadow);
+      opacity: 0;
+      transform: translateY(12px);
+      transition: 0.2s ease;
+      z-index: 120;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.error { background: #7f3232; }
+    @media (max-width: 980px) {
+      .hero { grid-template-columns: 1fr; }
+      .admin-layout { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+      .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .mobile-admin-nav {
+        display: flex;
+        position: sticky;
+        top: 0;
+        z-index: 25;
+        margin: -6px -6px 18px;
+        padding: 10px 6px 14px;
+        background: linear-gradient(180deg, rgba(247,242,234,0.98), rgba(247,242,234,0.9));
+        backdrop-filter: blur(10px);
+      }
+      .service-admin-grid { grid-template-columns: 1fr; }
+      .business-grid { grid-template-columns: 1fr; gap: 18px; }
+      .integrations-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .admin-main { padding-top: 18px; }
+      .admin-topbar .btn-primary { width: auto; }
+    }
+    @media (max-width: 720px) {
+      .form-grid, .stats-grid { grid-template-columns: 1fr; }
+      .hero-copy h1 { font-size: 44px; }
+      .topbar { flex-direction: column; align-items: flex-start; }
+      .booking-wrap, .page-shell, .admin-main { padding-left: 16px; padding-right: 16px; }
+      .panel-card-header, .admin-topbar { align-items: flex-start; }
+      .topbar { padding: 14px 16px; gap: 10px; }
+      .nav-links { width: 100%; gap: 8px; flex-wrap: wrap; }
+      .nav-links button { flex: 1 1 calc(50% - 4px); text-align: center; }
+      .booking-card, .panel-card, .stat-card, .modal, .detail-box { border-radius: 18px; }
+      .booking-card { padding: 20px; }
+      .admin-main { padding-top: 12px; padding-bottom: 28px; }
+      .admin-topbar { margin-bottom: 16px; }
+      .admin-topbar .btn-primary { width: 100%; }
+      .mobile-admin-nav button { padding: 10px 12px; font-size: 13px; }
+      .admin-page-title { font-size: 24px; }
+      .panel-card-title { font-size: 22px; }
+      .stat-card { padding: 16px; }
+      .stat-card-value { font-size: 30px; line-height: 1; }
+      .stat-card-label { font-size: 11px; }
+      .panel-card-header { padding: 16px; }
+      #today-list, #appointments-table-wrap { padding: 12px 14px 14px; }
+      .filters-bar > * { width: 100%; }
+      table, thead, tbody, tr, th, td { display: block; }
+      thead { display: none; }
+      tbody { display: grid; gap: 12px; }
+      tr {
+        border: 1px solid rgba(0,0,0,0.08);
+        border-radius: 16px;
+        padding: 12px;
+        background: white;
+        box-shadow: 0 10px 24px rgba(23, 17, 10, 0.06);
+      }
+      td {
+        border: none;
+        padding: 6px 0;
+      }
+      td[data-label]::before {
+        content: attr(data-label);
+        display: block;
+        margin-bottom: 4px;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .td-actions {
+        padding-top: 10px;
+        border-top: 1px solid rgba(0,0,0,0.06);
+        margin-top: 6px;
+      }
+      .td-actions::before { display: none; }
+      .action-btn { margin-right: 8px; margin-bottom: 8px; }
+      .service-admin-grid { gap: 14px; }
+      .service-list-item { padding: 14px; }
+      .business-grid { gap: 14px; }
+      .integrations-grid {
+        grid-template-columns: 1fr;
+        gap: 14px;
+      }
+      .integration-card {
+        min-height: auto;
+        padding: 16px;
+      }
+      .modal-backdrop, .detail-modal { padding: 10px; align-items: flex-end; }
+      .modal, .detail-box {
+        max-width: none;
+        max-height: 90vh;
+        padding: 18px;
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
+      }
+      .modal-title, .detail-box-title { font-size: 24px; }
+      .modal-sub, .admin-date, .panel-help, .form-note { font-size: 13px; }
+      .modal-footer, .detail-footer { justify-content: stretch; }
+      .modal-footer > *, .detail-footer > * { flex: 1 1 calc(50% - 5px); text-align: center; }
+      .price-display { font-size: 22px; }
+      #view-new-appointment .booking-card,
+      #view-services .booking-card,
+      #view-business .panel-card,
+      #view-integrations .panel-card,
+      #view-dashboard .panel-card,
+      #view-appointments .panel-card {
+        width: 100%;
+        max-width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar" id="main-nav">
+    <div class="brand">ASH<span>F</span>ORD</div>
+    <div class="nav-links">
+      <button onclick="showPage('booking')">Reservar</button>
+    </div>
+  </header>
+
+  <div id="page-home" class="page">
+    <section class="hero">
+      <div class="hero-card hero-copy">
+        <div class="eyebrow">Barberia con agenda real</div>
+        <h1>Reserva online.<br>Gestiona desde el panel.</h1>
+        <p>La web y el panel comparten la misma base de datos. Las horas ocupadas no vuelven a salir, el horario se puede editar y la pausa de comida tambien.</p>
+        <div class="hero-actions">
+          <button class="btn-primary" onclick="showPage('booking')">Pedir cita</button>
+        </div>
+      </div>
+      <div class="hero-card hero-side">
+        <h3>Como funciona</h3>
+        <div class="service-list">
+          <div class="service-item"><div><strong>Disponibilidad real</strong><small>Solo dentro del horario configurado y evitando solapes.</small></div></div>
+          <div class="service-item"><div><strong>Pausa de comida</strong><small>Configurable desde el panel para cortar las horas de reserva.</small></div></div>
+          <div class="service-item"><div><strong>Panel editable</strong><small>Citas, direccion, correo, telefono y horarios se guardan de verdad.</small></div></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div id="page-booking" class="page active">
+    <div class="booking-wrap">
+      <div class="section-header">
+        <div class="eyebrow">Solicitud de cita</div>
+        <h2>Reserve su proxima visita</h2>
+        <p class="section-sub" id="booking-subtitle">Disponibilidad real segun horario y citas ya registradas.</p>
+      </div>
+      <div class="booking-card">
+        <div class="panel-card-header" style="padding:0 0 18px 0; border-bottom:none;">
+          <span class="panel-card-title">Datos de la cita</span>
+          <span class="panel-help">Todos los campos son requeridos</span>
+        </div>
+        <div class="form-grid">
+          <div class="form-group"><label class="form-label">Nombre completo</label><input type="text" class="form-input" id="f-name" placeholder="Alejandro Garcia"></div>
+          <div class="form-group"><label class="form-label">Telefono</label><input type="tel" class="form-input" id="f-phone" placeholder="+34 600 000 000"></div>
+          <div class="form-group"><label class="form-label">Fecha</label><input type="date" class="form-input" id="f-date"></div>
+          <div class="form-group"><label class="form-label">Hora preferida</label><select class="form-select" id="f-time"><option value="">Seleccione fecha y servicio</option></select></div>
+          <div class="form-group"><label class="form-label">Servicio</label><select class="form-select" id="f-service"><option value="">Cargando servicios...</option></select></div>
+          <div class="form-group"><label class="form-label">Precio estimado</label><div class="price-display" id="price-display">-</div></div>
+          <div class="form-group full"><label class="form-label">Observaciones</label><textarea class="form-textarea" id="f-notes" placeholder="Indicaciones especiales, preferencias de estilo, alergias..."></textarea></div>
+        </div>
+        <button class="form-submit" id="submit-btn" onclick="submitBooking()">Solicitar cita</button>
+        <p class="form-note">Seleccione una fecha y un servicio para ver las horas disponibles.</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="page-admin" class="page">
+    <div class="admin-layout">
+      <aside class="sidebar">
+        <div class="sidebar-logo">ASH<span>F</span>ORD</div>
+        <div class="sidebar-section">Principal</div>
+        <div class="sidebar-nav">
+          <button class="sidebar-item active" onclick="switchView('dashboard', this)">Dashboard</button>
+          <button class="sidebar-item" onclick="switchView('appointments', this)">Citas <span class="sidebar-badge" id="pending-badge">0</span></button>
+          <button class="sidebar-item" onclick="switchView('new-appointment', this)">Nueva cita</button>
+          <button class="sidebar-item" onclick="switchView('services', this)">Servicios</button>
+        </div>
+        <div class="sidebar-section">Configuracion</div>
+        <div class="sidebar-nav">
+          <button class="sidebar-item" onclick="switchView('business', this)">Negocio</button>
+          <button class="sidebar-item" onclick="switchView('integrations', this)">Integraciones</button>
+        </div>
+        <div class="sidebar-footer">
+          <div class="sidebar-user">
+            <div id="sidebar-business-name">Ashford Admin</div>
+            <div id="sidebar-business-email" style="font-size:12px; color:rgba(255,255,255,0.6); margin-top:4px;">admin@ashford.es</div>
+          </div>
+          <button class="sidebar-logout" onclick="logout()">Cerrar sesion</button>
+        </div>
+      </aside>
+      <main class="admin-main">
+        <div class="mobile-admin-nav">
+          <button class="active" data-view="dashboard" onclick="switchView('dashboard', this)">Dashboard</button>
+          <button data-view="appointments" onclick="switchView('appointments', this)">Citas</button>
+          <button data-view="new-appointment" onclick="switchView('new-appointment', this)">Nueva</button>
+          <button data-view="services" onclick="switchView('services', this)">Servicios</button>
+          <button data-view="business" onclick="switchView('business', this)">Negocio</button>
+          <button data-view="integrations" onclick="switchView('integrations', this)">Integraciones</button>
+        </div>
+        <div class="admin-view active" id="view-dashboard">
+          <div class="admin-topbar">
+            <div>
+              <div class="admin-page-title">Panel de gestion</div>
+              <div class="admin-date" id="today-label"></div>
+            </div>
+            <button class="btn-primary" onclick="switchView('new-appointment', document.querySelectorAll('.sidebar-item')[2])">+ Nueva cita</button>
+          </div>
+          <div class="stats-grid">
+            <div class="stat-card"><span class="stat-card-label">Citas hoy</span><span class="stat-card-value" id="stat-today">0</span></div>
+            <div class="stat-card"><span class="stat-card-label">Confirmadas</span><span class="stat-card-value" id="stat-confirmed">0</span></div>
+            <div class="stat-card"><span class="stat-card-label">Pendientes</span><span class="stat-card-value" id="stat-pending">0</span></div>
+            <div class="stat-card"><span class="stat-card-label">Generado</span><span class="stat-card-value" id="stat-revenue-generated">0EUR</span></div>
+            <div class="stat-card"><span class="stat-card-label">Por llegar</span><span class="stat-card-value" id="stat-revenue-upcoming">0EUR</span></div>
+          </div>
+          <div class="panel-card">
+            <div class="panel-card-header"><span class="panel-card-title">Citas de hoy</span></div>
+            <div id="today-list"></div>
+          </div>
+        </div>
+
+        <div class="admin-view" id="view-appointments">
+          <div class="admin-topbar"><div class="admin-page-title">Gestion de citas</div></div>
+          <div class="panel-card">
+            <div class="panel-card-header">
+              <span class="panel-card-title">Todas las solicitudes</span>
+              <div class="filters-bar">
+                <select class="filter-select" id="filter-status" onchange="renderAppointmentsTable()">
+                  <option value="">Todos los estados</option>
+                  <option value="new">Nuevas</option>
+                  <option value="pending">Pendientes</option>
+                  <option value="confirmed">Confirmadas</option>
+                  <option value="cancelled">Canceladas</option>
+                  <option value="done">Realizadas</option>
+                </select>
+                <input type="date" class="filter-input" id="filter-date" onchange="renderAppointmentsTable()">
+                <button class="action-btn edit" onclick="document.getElementById('filter-status').value='';document.getElementById('filter-date').value='';renderAppointmentsTable()">Limpiar</button>
+              </div>
+            </div>
+            <div id="appointments-table-wrap"></div>
+          </div>
+        </div>
+
+        <div class="admin-view" id="view-new-appointment">
+          <div class="admin-topbar"><div class="admin-page-title">Nueva cita</div></div>
+          <div class="booking-card admin-form-card">
+            <div class="form-grid">
+              <div class="form-group"><label class="form-label">Nombre</label><input type="text" class="form-input" id="a-name"></div>
+              <div class="form-group"><label class="form-label">Telefono</label><input type="tel" class="form-input" id="a-phone"></div>
+              <div class="form-group"><label class="form-label">Fecha</label><input type="date" class="form-input" id="a-date"></div>
+              <div class="form-group"><label class="form-label">Hora</label><select class="form-select" id="a-time"><option value="">Seleccione fecha y servicio</option></select></div>
+              <div class="form-group"><label class="form-label">Servicio</label><select class="form-select" id="a-service"><option value="">Cargando servicios...</option></select></div>
+              <div class="form-group"><label class="form-label">Precio</label><div class="price-display" id="admin-price-display">-</div></div>
+              <div class="form-group full"><label class="form-label">Canal</label><select class="form-select" id="a-channel"><option value="internal">Interno</option><option value="web">Web</option><option value="whatsapp">WhatsApp</option><option value="phone">Llamada</option></select></div>
+              <div class="form-group full"><label class="form-label">Observaciones</label><textarea class="form-textarea" id="a-notes"></textarea></div>
+            </div>
+            <button class="form-submit" onclick="adminCreateAppointment()">Registrar cita</button>
+          </div>
+        </div>
+
+        <div class="admin-view" id="view-services">
+          <div class="admin-topbar"><div class="admin-page-title">Servicios</div></div>
+          <div class="service-admin-grid">
+            <div class="booking-card">
+              <div class="panel-card-header" style="padding:0 0 18px 0; border-bottom:none;">
+                <span class="panel-card-title">Editar servicio</span>
+              </div>
+              <div class="form-grid">
+                <div class="form-group full"><label class="form-label">Nombre</label><input class="form-input" id="svc-name"></div>
+                <div class="form-group full"><label class="form-label">Descripcion</label><textarea class="form-textarea" id="svc-description"></textarea></div>
+                <div class="form-group"><label class="form-label">Precio</label><input class="form-input" id="svc-price" type="number" min="0" step="0.01"></div>
+                <div class="form-group"><label class="form-label">Duracion (min.)</label><input class="form-input" id="svc-duration" type="number" min="5" step="5"></div>
+                <div class="form-group full">
+                  <label class="form-label">Activo</label>
+                  <select class="form-select" id="svc-active">
+                    <option value="1">Si</option>
+                    <option value="0">No</option>
+                  </select>
+                </div>
+              </div>
+              <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <button class="form-submit" style="margin-top:18px;" onclick="saveService()">Guardar servicio</button>
+                <button class="btn-secondary" style="margin-top:18px;" onclick="resetServiceForm()">Nuevo servicio</button>
+              </div>
+            </div>
+            <div class="panel-card">
+              <div class="panel-card-header"><span class="panel-card-title">Catalogo</span></div>
+              <div id="services-admin-list" style="padding:20px;"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="admin-view" id="view-business">
+          <div class="admin-page-title" style="margin-bottom:22px;">Configuracion del negocio</div>
+          <div class="business-grid">
+            <div class="panel-card">
+              <div class="panel-card-header"><span class="panel-card-title">Datos del negocio</span></div>
+              <div style="padding:20px; display:grid; gap:14px;">
+                <div class="form-group"><label class="form-label">Nombre</label><input class="form-input" id="cfg-business-name"></div>
+                <div class="form-group"><label class="form-label">Direccion</label><input class="form-input" id="cfg-business-address"></div>
+                <div class="form-group"><label class="form-label">Telefono</label><input class="form-input" id="cfg-business-phone"></div>
+                <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="cfg-business-email"></div>
+                <div class="form-group"><label class="form-label">WhatsApp</label><input class="form-input" id="cfg-business-whatsapp"></div>
+                <div class="form-group"><label class="form-label">Duracion base de franja (min.)</label><input class="form-input" id="cfg-slot-duration" type="number" min="5" step="5"></div>
+              </div>
+            </div>
+            <div class="panel-card">
+              <div class="panel-card-header"><span class="panel-card-title">Horario</span></div>
+              <div style="padding:20px; display:grid; gap:14px;">
+                <div class="form-group"><label class="form-label">Lunes a viernes</label><input class="form-input" id="cfg-opening-weekday" placeholder="09:00-20:00 o closed"></div>
+                <div class="form-group"><label class="form-label">Sabado</label><input class="form-input" id="cfg-opening-saturday" placeholder="09:00-15:00 o closed"></div>
+                <div class="form-group"><label class="form-label">Domingo</label><input class="form-input" id="cfg-opening-sunday" placeholder="closed"></div>
+                <div class="form-group"><label class="form-label">Pausa comida</label><input class="form-input" id="cfg-lunch-break" placeholder="13:30-16:00 o vacio"></div>
+                <div class="panel-help">Formato recomendado: <code>09:00-20:00</code>. Use <code>closed</code> para cerrar un dia completo.</div>
+              </div>
+            </div>
+            <div class="panel-card" style="grid-column:1/-1;">
+              <div class="panel-card-header"><span class="panel-card-title">Preguntas frecuentes</span></div>
+              <div style="padding:20px;">
+                <div id="faq-list"></div>
+                <div class="panel-help" style="margin-top:12px;">Las FAQs se cargan desde la base de datos actual del negocio.</div>
+              </div>
+            </div>
+            <div style="grid-column:1/-1; display:flex; justify-content:flex-end;">
+              <button class="form-submit" style="max-width:260px;" id="business-save-button" onclick="saveBusinessConfig()">Guardar configuracion</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="admin-view" id="view-integrations">
+          <div class="admin-page-title" style="margin-bottom:22px;">Integraciones</div>
+          <div class="integrations-grid">
+            <div class="panel-card"><div class="integration-card"><strong>WhatsApp API</strong><p class="panel-help">Preparado para conectar confirmaciones, recordatorios y mensajes transaccionales con una presentación limpia en cualquier pantalla.</p></div></div>
+            <div class="panel-card"><div class="integration-card"><strong>Email</strong><p class="panel-help">Preparado para avisos al negocio y confirmaciones al cliente, con configuración centralizada desde el panel.</p></div></div>
+            <div class="panel-card"><div class="integration-card"><strong>n8n</strong><p class="panel-help">Webhook disponible para automatizaciones externas y procesos internos sin romper el layout móvil.</p></div></div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="login-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Acceso al panel</div>
+          <div class="modal-sub">Area privada Ashford</div>
+        </div>
+        <button class="detail-close" onclick="closeLoginModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group full"><label class="form-label">Usuario</label><input type="text" class="form-input" id="login-user" value="admin"></div>
+          <div class="form-group full"><label class="form-label">Contrasena</label><input type="password" class="form-input" id="login-pass" onkeydown="if(event.key==='Enter')doLogin()"></div>
+        </div>
+        <div class="panel-help" id="login-error" style="display:none; color:var(--danger); margin-top:12px;">Credenciales incorrectas.</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" onclick="closeLoginModal()">Cancelar</button>
+        <button class="btn-login" onclick="doLogin()">Entrar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="detail-modal" id="detail-modal">
+    <div class="detail-box">
+      <div class="detail-box-header">
+        <div>
+          <div class="detail-box-title" id="detail-title">Detalle de cita</div>
+          <div id="detail-badge-wrap" style="margin-top:8px;"></div>
+        </div>
+        <button class="detail-close" onclick="closeDetail()">×</button>
+      </div>
+      <div class="detail-body" id="detail-body"></div>
+      <div class="detail-footer" id="detail-footer"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+const AUTH = { user: 'admin', pass: 'ashford2024', token: 'ashford-admin-token' };
+const state = {
+  services: [],
+  adminServices: [],
+  faqs: [],
+  businessInfo: {},
+  appointments: [],
+  stats: null,
+  isLoggedIn: false,
+  currentDetailId: null,
+  editingServiceId: null,
+};
+
+function esc(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\"/g, '&quot;');
+}
+
+function formatDate(value) {
+  if (!value) return '-';
+  const [year, month, day] = value.split('-');
+  return `${day}/${month}/${year}`;
+}
+
+function showToast(message, type = 'success') {
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.className = 'toast ' + type;
+  toast.classList.add('show');
+  clearTimeout(toast._timeout);
+  toast._timeout = setTimeout(() => toast.classList.remove('show'), 4000);
+}
+
+async function api(path, options = {}) {
+  const response = await fetch(path, options);
+  const text = await response.text();
+  const payload = text ? JSON.parse(text) : null;
+  if (!response.ok) {
+    throw new Error(payload?.error || 'Error de servidor');
+  }
+  return payload;
+}
+
+function adminHeaders(extra = {}) {
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${AUTH.token}`,
+    ...extra,
+  };
+}
+
+async function adminApi(path, options = {}) {
+  return api(path, { ...options, headers: adminHeaders(options.headers || {}) });
+}
+
+function normalizeBusinessInfo(raw) {
+  if (Array.isArray(raw)) {
+    return Object.fromEntries(raw.map((item) => [item.key, item.value]));
+  }
+  return raw || {};
+}
+
+function getServiceById(id) {
+  return state.services.find((service) => service.id === id) || null;
+}
+
+function getAdminServiceById(id) {
+  return state.adminServices.find((service) => service.id === id) || null;
+}
+
+function getBusinessFormRefs() {
+  const cards = document.querySelectorAll('#view-business .panel-card');
+  const businessInputs = cards[0]?.querySelectorAll('input') || [];
+  const hoursInputs = cards[1]?.querySelectorAll('input') || [];
+  return {
+    businessName: businessInputs[0],
+    businessAddress: businessInputs[1],
+    businessPhone: businessInputs[2],
+    businessEmail: businessInputs[3],
+    businessWhatsapp: businessInputs[4],
+    slotDuration: businessInputs[5],
+    weekdayHours: hoursInputs[0],
+    saturdayHours: hoursInputs[1],
+    sundayHours: hoursInputs[2],
+    lunchBreak: hoursInputs[3],
+  };
+}
+
+function ensureBusinessSaveButton() {
+  if (document.getElementById('business-save-button')) return;
+  const grid = document.querySelector('#view-business > div:nth-child(2)');
+  if (!grid) return;
+  const wrapper = document.createElement('div');
+  wrapper.style.gridColumn = '1/-1';
+  wrapper.style.display = 'flex';
+  wrapper.style.justifyContent = 'flex-end';
+  wrapper.innerHTML = '<button class="form-submit" style="max-width:260px;" id="business-save-button" onclick="saveBusinessConfig()">Guardar configuracion</button>';
+  grid.appendChild(wrapper);
+}
+
+function setSidebarBusinessInfo() {
+  const nameEl = document.getElementById('sidebar-business-name') || document.querySelector('.sidebar-user div div');
+  const emailEl = document.getElementById('sidebar-business-email') || document.querySelectorAll('.sidebar-user div div')[1];
+  if (nameEl) nameEl.textContent = state.businessInfo.business_name || 'Ashford Admin';
+  if (emailEl) emailEl.textContent = state.businessInfo.business_email || 'admin@ashford.es';
+}
+
+function renderFaqs() {
+  const list = document.getElementById('faq-list');
+  if (!list) return;
+  list.innerHTML = state.faqs.map((faq) => `
+    <div style="padding:14px 0; border-bottom:1px solid var(--border);">
+      <div style="font-weight:500; font-size:13px; color:var(--ink); margin-bottom:4px;">${esc(faq.question)}</div>
+      <div style="font-size:12px; color:var(--mid);">${esc(faq.answer)}</div>
+    </div>
+  `).join('');
+}
+
+function renderServiceSelect(selectId, placeholder) {
+  const select = document.getElementById(selectId);
+  if (!select) return;
+  const currentValue = select.value;
+  select.innerHTML = [`<option value="">${placeholder}</option>`].concat(
+    state.services.map((service) => `<option value="${service.id}">${esc(service.name)} - ${service.price} EUR</option>`)
+  ).join('');
+  if (state.services.some((service) => service.id === currentValue)) {
+    select.value = currentValue;
+  }
+}
+
+function renderAdminServices() {
+  const container = document.getElementById('services-admin-list');
+  if (!container) return;
+  if (!state.adminServices.length) {
+    container.innerHTML = '<div class="empty-state">No hay servicios cargados.</div>';
+    return;
+  }
+
+  container.innerHTML = `<div class="service-list-admin">
+    ${state.adminServices.map((service) => `
+      <div class="service-list-item">
+        <h4>${esc(service.name)}</h4>
+        <p>${esc(service.description || 'Sin descripcion')}</p>
+        <div class="service-meta">
+          <span>${service.price} EUR</span>
+          <span>${service.duration_minutes} min</span>
+          <span>${service.active ? 'Activo' : 'Oculto'}</span>
+        </div>
+        <div style="margin-top:12px;">
+          <button class="action-btn edit" onclick="editService('${service.id}')">Editar</button>
+          <button class="action-btn reject" onclick="deleteService('${service.id}')">Eliminar</button>
+        </div>
+      </div>
+    `).join('')}
+  </div>`;
+}
+
+function resetServiceForm() {
+  state.editingServiceId = null;
+  document.getElementById('svc-name').value = '';
+  document.getElementById('svc-description').value = '';
+  document.getElementById('svc-price').value = '';
+  document.getElementById('svc-duration').value = '';
+  document.getElementById('svc-active').value = '1';
+}
+
+function editService(id) {
+  const service = getAdminServiceById(id);
+  if (!service) return;
+  state.editingServiceId = id;
+  document.getElementById('svc-name').value = service.name || '';
+  document.getElementById('svc-description').value = service.description || '';
+  document.getElementById('svc-price').value = service.price ?? '';
+  document.getElementById('svc-duration').value = service.duration_minutes ?? '';
+  document.getElementById('svc-active').value = String(service.active ? 1 : 0);
+  switchView('services', document.querySelector('.sidebar-item:nth-child(4)'));
+}
+
+async function saveService() {
+  const payload = {
+    name: document.getElementById('svc-name').value.trim(),
+    description: document.getElementById('svc-description').value.trim(),
+    price: Number(document.getElementById('svc-price').value),
+    duration_minutes: Number(document.getElementById('svc-duration').value),
+    active: document.getElementById('svc-active').value === '1',
+  };
+
+  if (!payload.name || Number.isNaN(payload.price) || Number.isNaN(payload.duration_minutes)) {
+    showToast('Complete bien nombre, precio y duracion.', 'error');
+    return;
+  }
+
+  try {
+    const service = state.editingServiceId
+      ? await adminApi(`/api/admin/services/${state.editingServiceId}`, { method: 'PATCH', body: JSON.stringify(payload) })
+      : await adminApi('/api/admin/services', { method: 'POST', body: JSON.stringify(payload) });
+
+    if (state.editingServiceId) {
+      state.adminServices = state.adminServices.map((item) => item.id === service.id ? service : item);
+    } else {
+      state.adminServices.unshift(service);
+    }
+
+    await loadPublicData();
+    renderAdminServices();
+    resetServiceForm();
+    showToast('Servicio guardado correctamente.');
+  } catch (error) {
+    showToast(error.message, 'error');
+  }
+}
+
+async function deleteService(id) {
+  const service = getAdminServiceById(id);
+  if (!service) return;
+  const hasAppointments = state.appointments.some((appointment) => appointment.service === service.name);
+  const confirmation = hasAppointments
+    ? `El servicio "${service.name}" ya aparece en citas existentes. Se eliminara del catalogo igualmente. Continuar?`
+    : `Eliminar el servicio "${service.name}"?`;
+  if (!window.confirm(confirmation)) return;
+
+  try {
+    await adminApi(`/api/admin/services/${id}`, { method: 'DELETE' });
+    state.adminServices = state.adminServices.filter((item) => item.id !== id);
+    state.services = state.services.filter((item) => item.id !== id);
+    if (state.editingServiceId === id) resetServiceForm();
+    renderAdminServices();
+    renderServiceSelect('f-service', 'Seleccionar servicio');
+    renderServiceSelect('a-service', 'Seleccionar servicio');
+    showToast('Servicio eliminado correctamente.');
+  } catch (error) {
+    showToast(error.message, 'error');
+  }
+}
+
+function updatePrice() {
+  const service = getServiceById(document.getElementById('f-service').value);
+  document.getElementById('price-display').textContent = service ? `${service.price} EUR` : '-';
+}
+
+function updateAdminPrice() {
+  const service = getServiceById(document.getElementById('a-service').value);
+  document.getElementById('admin-price-display').textContent = service ? `${service.price} EUR` : '-';
+}
+
+function fillBusinessForm() {
+  const refs = getBusinessFormRefs();
+  if (!refs.businessName) return;
+  refs.businessName.value = state.businessInfo.business_name || '';
+  refs.businessAddress.value = state.businessInfo.business_address || '';
+  refs.businessPhone.value = state.businessInfo.business_phone || '';
+  refs.businessEmail.value = state.businessInfo.business_email || '';
+  refs.businessWhatsapp.value = state.businessInfo.business_whatsapp || '';
+  refs.slotDuration.value = state.businessInfo.slot_duration_minutes || '30';
+  refs.weekdayHours.value = state.businessInfo.opening_hours_weekday || '09:00-20:00';
+  refs.saturdayHours.value = state.businessInfo.opening_hours_saturday || '09:00-15:00';
+  refs.sundayHours.value = state.businessInfo.opening_hours_sunday || 'closed';
+  refs.lunchBreak.value = state.businessInfo.lunch_break || '';
+}
+
+function getBusinessPayload() {
+  const refs = getBusinessFormRefs();
+  return {
+    business_name: refs.businessName?.value.trim() || '',
+    business_address: refs.businessAddress?.value.trim() || '',
+    business_phone: refs.businessPhone?.value.trim() || '',
+    business_email: refs.businessEmail?.value.trim() || '',
+    business_whatsapp: refs.businessWhatsapp?.value.trim() || '',
+    slot_duration_minutes: refs.slotDuration?.value.trim() || '30',
+    opening_hours_weekday: refs.weekdayHours?.value.trim() || 'closed',
+    opening_hours_saturday: refs.saturdayHours?.value.trim() || 'closed',
+    opening_hours_sunday: refs.sundayHours?.value.trim() || 'closed',
+    lunch_break: refs.lunchBreak?.value.trim(),
+  };
+}
+
+function bookingNoteElement() {
+  return document.querySelector('#page-booking .form-note');
+}
+
+function describeAvailability(data) {
+  const windows = (data.windows || []).map((window) => `${window.start}-${window.end}`).join(', ');
+  const lunch = data.lunch_break ? ` Pausa comida: ${data.lunch_break}.` : '';
+  if (!windows) return 'No hay horario disponible ese dia.';
+  return `Horario disponible: ${windows}.${lunch}`;
+}
+
+function setTimeOptions(select, slots, selectedValue = '') {
+  if (!slots.length) {
+    select.innerHTML = '<option value="">No hay horas disponibles</option>';
+    select.disabled = true;
+    return;
+  }
+  const orderedSlots = [...slots].sort((a, b) => b.localeCompare(a));
+  select.innerHTML = ['<option value="">Seleccionar hora</option>'].concat(
+    orderedSlots.map((slot) => `<option value="${slot}">${slot}</option>`)
+  ).join('');
+  select.disabled = false;
+  if (selectedValue && orderedSlots.includes(selectedValue)) {
+    select.value = selectedValue;
+  }
+}
+
+async function loadAvailability({ date, serviceId, selectId, noteEl = null, excludeId = null, selectedValue = '' }) {
+  const select = document.getElementById(selectId);
+  if (!select) return;
+  if (!date || !serviceId) {
+    select.innerHTML = '<option value="">Seleccione fecha y servicio</option>';
+    select.disabled = true;
+    if (noteEl) noteEl.textContent = 'Seleccione una fecha y un servicio para ver las horas disponibles.';
+    return;
+  }
+  try {
+    const query = new URLSearchParams({ date, service_id: serviceId });
+    if (excludeId) query.set('exclude_id', excludeId);
+    const data = await api(`/api/availability?${query.toString()}`);
+    const slots = [...(data.available || [])];
+    if (selectedValue && !slots.includes(selectedValue)) slots.unshift(selectedValue);
+    setTimeOptions(select, slots, selectedValue);
+    if (noteEl) noteEl.textContent = describeAvailability(data);
+  } catch (error) {
+    select.innerHTML = '<option value="">No se pudo cargar disponibilidad</option>';
+    select.disabled = true;
+    if (noteEl) noteEl.textContent = error.message;
+  }
+}
+
+async function refreshPublicAvailability() {
+  await loadAvailability({
+    date: document.getElementById('f-date').value,
+    serviceId: document.getElementById('f-service').value,
+    selectId: 'f-time',
+    noteEl: bookingNoteElement(),
+  });
+}
+
+async function refreshAdminCreateAvailability() {
+  await loadAvailability({
+    date: document.getElementById('a-date').value,
+    serviceId: document.getElementById('a-service').value,
+    selectId: 'a-time',
+  });
+}
+
+async function loadPublicData() {
+  const businessInfo = normalizeBusinessInfo(await api('/api/business/info'));
+  state.businessInfo = businessInfo;
+  state.services = businessInfo.services || [];
+  state.faqs = businessInfo.faqs || [];
+  renderServiceSelect('f-service', 'Seleccionar servicio');
+  renderServiceSelect('a-service', 'Seleccionar servicio');
+  renderFaqs();
+  fillBusinessForm();
+  setSidebarBusinessInfo();
+  const subtitle = document.getElementById('booking-subtitle');
+  if (subtitle) subtitle.textContent = 'Disponibilidad real segun horario, pausa de comida y citas ya registradas.';
+}
+
+async function loadAdminData() {
+  const [appointments, stats, configRows, services] = await Promise.all([
+    adminApi('/api/admin/appointments'),
+    adminApi('/api/admin/stats'),
+    adminApi('/api/admin/config'),
+    adminApi('/api/admin/services'),
+  ]);
+  state.appointments = appointments;
+  state.stats = stats;
+  state.adminServices = services;
+  state.businessInfo = { ...state.businessInfo, ...normalizeBusinessInfo(configRows) };
+  fillBusinessForm();
+  setSidebarBusinessInfo();
+  refreshDashboard();
+  renderAppointmentsTable();
+  updatePendingBadge();
+  renderAdminServices();
+}
+
+function openLoginModal() {
+  document.getElementById('login-modal').classList.add('open');
+  setTimeout(() => document.getElementById('login-pass').focus(), 100);
+}
+
+function closeLoginModal() {
+  document.getElementById('login-modal').classList.remove('open');
+  document.getElementById('login-error').classList.remove('show');
+}
+
+async function doLogin() {
+  const user = document.getElementById('login-user').value;
+  const pass = document.getElementById('login-pass').value;
+  if (user !== AUTH.user || pass !== AUTH.pass) {
+    document.getElementById('login-error').classList.add('show');
+    document.getElementById('login-pass').value = '';
+    document.getElementById('login-pass').focus();
+    return;
+  }
+  state.isLoggedIn = true;
+  closeLoginModal();
+  await showAdminPanel();
+}
+
+function logout() {
+  state.isLoggedIn = false;
+  if (window.location.pathname === '/admin') {
+    window.location.href = '/';
+    return;
+  }
+  showPage('booking');
+  document.getElementById('main-nav').style.display = 'flex';
+}
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach((page) => page.classList.remove('active'));
+  const target = document.getElementById('page-' + name);
+  if (target) target.classList.add('active');
+  document.getElementById('main-nav').style.display = name === 'admin' ? 'none' : 'flex';
+  window.scrollTo(0, 0);
+}
+
+async function showAdminPanel() {
+  await loadAdminData();
+  showPage('admin');
+  updateTodayLabel();
+}
+
+function switchView(name, element) {
+  document.querySelectorAll('.admin-view').forEach((view) => view.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  document.querySelectorAll('.sidebar-item').forEach((item) => item.classList.remove('active'));
+  document.querySelectorAll('.mobile-admin-nav button').forEach((button) => button.classList.remove('active'));
+  if (element) element.classList.add('active');
+  const mobileButton = document.querySelector(`.mobile-admin-nav button[data-view="${name}"]`);
+  if (mobileButton) mobileButton.classList.add('active');
+  if (name === 'dashboard') {
+    refreshDashboard();
+    updateTodayLabel();
+  }
+  if (name === 'appointments') renderAppointmentsTable();
+  if (name === 'business') fillBusinessForm();
+  if (name === 'services') renderAdminServices();
+}
+
+function updateTodayLabel() {
+  const now = new Date();
+  document.getElementById('today-label').textContent = now.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+function badgeHtml(status) {
+  const styles = { new: 'badge-new', pending: 'badge-pending', confirmed: 'badge-confirmed', cancelled: 'badge-cancelled', done: 'badge-done' };
+  const labels = { new: 'Nueva', pending: 'Pendiente', confirmed: 'Confirmada', cancelled: 'Cancelada', done: 'Realizada' };
+  return `<span class="badge ${styles[status] || 'badge-pending'}">${labels[status] || status}</span>`;
+}
+
+function buildTable(appointments) {
+  const channelLabels = { web: 'Web', whatsapp: 'WhatsApp', phone: 'Llamada', internal: 'Interno', external: 'Externo' };
+  const channelClasses = { web: 'channel-web', whatsapp: 'channel-whatsapp', phone: 'channel-phone', internal: 'channel-web', external: 'channel-phone' };
+  return `<table>
+    <thead><tr>
+      <th>Cliente</th><th>Fecha</th><th>Hora</th><th>Servicio</th><th>Precio</th><th>Canal</th><th>Estado</th><th>Acciones</th>
+    </tr></thead>
+    <tbody>
+      ${appointments.map((appointment) => `
+        <tr onclick="openDetail('${appointment.id}')">
+          <td class="td-name" data-label="Cliente">${esc(appointment.name)}<div style="font-size:11px;color:var(--mid);margin-top:2px;">${esc(appointment.phone)}</div></td>
+          <td data-label="Fecha">${formatDate(appointment.date)}</td>
+          <td data-label="Hora"><strong>${esc(appointment.time)}</strong></td>
+          <td class="td-service" data-label="Servicio">${esc(appointment.service)}</td>
+          <td class="td-price" data-label="Precio">${appointment.price} EUR</td>
+          <td data-label="Canal"><span class="channel-badge ${channelClasses[appointment.channel] || 'channel-web'}">${channelLabels[appointment.channel] || appointment.channel}</span></td>
+          <td data-label="Estado">${badgeHtml(appointment.status)}</td>
+          <td class="td-actions" onclick="event.stopPropagation()">
+            ${appointment.status !== 'confirmed' && appointment.status !== 'done' ? `<button class="action-btn accept" onclick="changeStatus('${appointment.id}','confirmed')">Confirmar</button>` : ''}
+            ${appointment.status !== 'pending' && appointment.status !== 'done' ? `<button class="action-btn edit" onclick="changeStatus('${appointment.id}','pending')">Pendiente</button>` : ''}
+            ${appointment.status !== 'cancelled' && appointment.status !== 'done' ? `<button class="action-btn reject" onclick="changeStatus('${appointment.id}','cancelled')">Cancelar</button>` : ''}
+            ${appointment.status !== 'done' ? `<button class="action-btn done" onclick="changeStatus('${appointment.id}','done')">Realizada</button>` : ''}
+            <button class="action-btn edit" onclick="openDetail('${appointment.id}')">Editar</button>
+          </td>
+        </tr>
+      `).join('')}
+    </tbody>
+  </table>`;
+}
+
+function refreshDashboard() {
+  const today = new Date().toISOString().slice(0, 10);
+  const todayAppointments = state.appointments.filter((appointment) => appointment.date === today).sort((a, b) => a.time.localeCompare(b.time));
+  const confirmed = state.appointments.filter((appointment) => appointment.status === 'confirmed');
+  const pending = state.appointments.filter((appointment) => ['new', 'pending'].includes(appointment.status));
+  const revenueUpcoming = confirmed.reduce((sum, appointment) => sum + Number(appointment.price || 0), 0);
+  const revenueGenerated = state.appointments
+    .filter((appointment) => appointment.status === 'done')
+    .reduce((sum, appointment) => sum + Number(appointment.price || 0), 0);
+  document.getElementById('stat-today').textContent = state.stats?.today ?? todayAppointments.length;
+  document.getElementById('stat-confirmed').textContent = state.stats?.confirmed ?? confirmed.length;
+  document.getElementById('stat-pending').textContent = state.stats?.pending ?? pending.length;
+  document.getElementById('stat-revenue-generated').textContent = `${state.stats?.revenue_generated ?? revenueGenerated}EUR`;
+  document.getElementById('stat-revenue-upcoming').textContent = `${state.stats?.revenue_upcoming ?? revenueUpcoming}EUR`;
+  const list = document.getElementById('today-list');
+  if (!todayAppointments.length) {
+    list.innerHTML = '<div class="empty-state"><span class="empty-state-icon">-</span><span class="empty-state-text">Sin citas para hoy</span></div>';
+    return;
+  }
+  list.innerHTML = buildTable(todayAppointments);
+}
+
+function updatePendingBadge() {
+  const count = state.appointments.filter((appointment) => ['new', 'pending'].includes(appointment.status)).length;
+  const badge = document.getElementById('pending-badge');
+  badge.textContent = count;
+  badge.style.display = count ? 'inline' : 'none';
+}
+
+function renderAppointmentsTable() {
+  let appointments = [...state.appointments];
+  const status = document.getElementById('filter-status').value;
+  const date = document.getElementById('filter-date').value;
+  if (status) appointments = appointments.filter((appointment) => appointment.status === status);
+  if (date) appointments = appointments.filter((appointment) => appointment.date === date);
+  const wrap = document.getElementById('appointments-table-wrap');
+  if (!appointments.length) {
+    wrap.innerHTML = '<div class="empty-state"><span class="empty-state-icon">-</span><span class="empty-state-text">No hay citas que coincidan con los filtros</span></div>';
+    return;
+  }
+  appointments.sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`));
+  wrap.innerHTML = buildTable(appointments);
+}
+
+async function changeStatus(id, status) {
+  try {
+    const updated = await adminApi(`/api/admin/appointments/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
+    state.appointments = state.appointments.map((appointment) => appointment.id === id ? updated : appointment);
+    refreshDashboard();
+    renderAppointmentsTable();
+    updatePendingBadge();
+    if (state.currentDetailId === id) await openDetail(id);
+    showToast('Cita actualizada correctamente.');
+  } catch (error) {
+    showToast(error.message, 'error');
+  }
+}
+
+function detailServiceOptions(selectedName) {
+  const source = state.adminServices.length ? state.adminServices : state.services;
+  return source.map((service) => `<option value="${service.id}" ${service.name === selectedName ? 'selected' : ''}>${esc(service.name)} - ${service.price} EUR</option>`).join('');
+}
+
+async function renderDetailEditor(appointment) {
+  document.getElementById('detail-body').innerHTML = `
+    <div class="edit-form">
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">Nombre</label><input class="form-input" id="detail-name" value="${esc(appointment.name)}"></div>
+        <div class="form-group"><label class="form-label">Telefono</label><input class="form-input" id="detail-phone" value="${esc(appointment.phone)}"></div>
+        <div class="form-group"><label class="form-label">Fecha</label><input class="form-input" type="date" id="detail-date" value="${esc(appointment.date)}"></div>
+        <div class="form-group"><label class="form-label">Hora</label><select class="form-select" id="detail-time"></select></div>
+        <div class="form-group"><label class="form-label">Servicio</label><select class="form-select" id="detail-service">${detailServiceOptions(appointment.service)}</select></div>
+        <div class="form-group"><label class="form-label">Precio</label><div class="price-display" id="detail-price">${appointment.price} EUR</div></div>
+        <div class="form-group"><label class="form-label">Canal</label><select class="form-select" id="detail-channel"><option value="internal" ${appointment.channel === 'internal' ? 'selected' : ''}>Interno</option><option value="web" ${appointment.channel === 'web' ? 'selected' : ''}>Web</option><option value="whatsapp" ${appointment.channel === 'whatsapp' ? 'selected' : ''}>WhatsApp</option><option value="phone" ${appointment.channel === 'phone' ? 'selected' : ''}>Llamada</option></select></div>
+        <div class="form-group"><label class="form-label">Estado</label><select class="form-select" id="detail-status"><option value="new" ${appointment.status === 'new' ? 'selected' : ''}>Nueva</option><option value="pending" ${appointment.status === 'pending' ? 'selected' : ''}>Pendiente</option><option value="confirmed" ${appointment.status === 'confirmed' ? 'selected' : ''}>Confirmada</option><option value="cancelled" ${appointment.status === 'cancelled' ? 'selected' : ''}>Cancelada</option><option value="done" ${appointment.status === 'done' ? 'selected' : ''}>Realizada</option></select></div>
+        <div class="form-group full"><label class="form-label">Observaciones</label><textarea class="form-textarea" id="detail-notes">${esc(appointment.notes || '')}</textarea></div>
+      </div>
+      <div style="margin-top:16px; font-size:12px; color:var(--mid);">Creada: ${new Date(appointment.created_at || Date.now()).toLocaleString('es-ES')}</div>
+    </div>
+  `;
+
+  const serviceSelect = document.getElementById('detail-service');
+  const dateInput = document.getElementById('detail-date');
+  document.getElementById('detail-price').textContent = `${(getAdminServiceById(serviceSelect.value) || getServiceById(serviceSelect.value))?.price ?? appointment.price} EUR`;
+
+  async function refreshDetailAvailability(selectedTime = '') {
+    await loadAvailability({ date: dateInput.value, serviceId: serviceSelect.value, selectId: 'detail-time', excludeId: appointment.id, selectedValue: selectedTime || appointment.time });
+  }
+
+  serviceSelect.addEventListener('change', async () => {
+    document.getElementById('detail-price').textContent = `${(getAdminServiceById(serviceSelect.value) || getServiceById(serviceSelect.value))?.price ?? 0} EUR`;
+    await refreshDetailAvailability('');
+  });
+  dateInput.addEventListener('change', async () => refreshDetailAvailability(''));
+  await refreshDetailAvailability(appointment.time);
+}
+
+async function openDetail(id) {
+  const appointment = state.appointments.find((item) => item.id === id);
+  if (!appointment) return;
+  state.currentDetailId = id;
+  document.getElementById('detail-title').textContent = appointment.name;
+  document.getElementById('detail-badge-wrap').innerHTML = badgeHtml(appointment.status);
+  await renderDetailEditor(appointment);
+  document.getElementById('detail-footer').innerHTML = '<button class="action-btn accept" onclick="saveDetail()">Guardar cambios</button><button class="action-btn edit" onclick="changeStatus(\'' + appointment.id + '\',\'pending\')">Pendiente</button><button class="action-btn accept" onclick="changeStatus(\'' + appointment.id + '\',\'confirmed\')">Confirmar</button><button class="action-btn reject" onclick="changeStatus(\'' + appointment.id + '\',\'cancelled\')">Cancelar</button><button class="action-btn done" onclick="changeStatus(\'' + appointment.id + '\',\'done\')">Realizada</button>';
+  document.getElementById('detail-modal').classList.add('open');
+}
+
+function closeDetail() {
+  document.getElementById('detail-modal').classList.remove('open');
+  state.currentDetailId = null;
+}
+
+async function saveDetail() {
+  if (!state.currentDetailId) return;
+  const service = getAdminServiceById(document.getElementById('detail-service').value) || getServiceById(document.getElementById('detail-service').value);
+  const payload = {
+    name: document.getElementById('detail-name').value.trim(),
+    phone: document.getElementById('detail-phone').value.trim(),
+    date: document.getElementById('detail-date').value,
+    time: document.getElementById('detail-time').value,
+    service_id: service?.id,
+    service: service?.name,
+    price: service?.price,
+    channel: document.getElementById('detail-channel').value,
+    status: document.getElementById('detail-status').value,
+    notes: document.getElementById('detail-notes').value,
+  };
+  if (!payload.name || !payload.phone || !payload.date || !payload.time || !payload.service_id) {
+    showToast('Complete todos los campos obligatorios.', 'error');
+    return;
+  }
+  try {
+    const updated = await adminApi(`/api/admin/appointments/${state.currentDetailId}`, { method: 'PATCH', body: JSON.stringify(payload) });
+    state.appointments = state.appointments.map((appointment) => appointment.id === updated.id ? updated : appointment);
+    refreshDashboard();
+    renderAppointmentsTable();
+    updatePendingBadge();
+    await openDetail(updated.id);
+    showToast('Cita guardada correctamente.');
+  } catch (error) {
+    showToast(error.message, 'error');
+  }
+}
+
+async function submitBooking() {
+  const service = getServiceById(document.getElementById('f-service').value);
+  const payload = {
+    name: document.getElementById('f-name').value.trim(),
+    phone: document.getElementById('f-phone').value.trim(),
+    date: document.getElementById('f-date').value,
+    time: document.getElementById('f-time').value,
+    service_id: service?.id,
+    service: service?.name,
+    price: service?.price,
+    notes: document.getElementById('f-notes').value,
+    channel: 'web'
+  };
+  if (!payload.name || !payload.phone || !payload.date || !payload.time || !payload.service_id) {
+    showToast('Por favor, complete todos los campos.', 'error');
+    return;
+  }
+  const button = document.getElementById('submit-btn');
+  button.disabled = true;
+  button.textContent = 'Enviando...';
+  try {
+    await api('/api/appointments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    button.disabled = false;
+    button.textContent = 'Solicitar cita';
+    document.getElementById('f-name').value = '';
+    document.getElementById('f-phone').value = '';
+    document.getElementById('f-date').value = '';
+    document.getElementById('f-time').innerHTML = '<option value="">Seleccione fecha y servicio</option>';
+    document.getElementById('f-time').disabled = true;
+    document.getElementById('f-service').value = '';
+    document.getElementById('f-notes').value = '';
+    document.getElementById('price-display').textContent = '-';
+    bookingNoteElement().textContent = 'Seleccione una fecha y un servicio para ver las horas disponibles.';
+    if (state.isLoggedIn) await loadAdminData();
+    showToast('Solicitud enviada correctamente.');
+  } catch (error) {
+    button.disabled = false;
+    button.textContent = 'Solicitar cita';
+    showToast(error.message, 'error');
+    await refreshPublicAvailability();
+  }
+}
+
+async function adminCreateAppointment() {
+  const service = getServiceById(document.getElementById('a-service').value);
+  const payload = {
+    name: document.getElementById('a-name').value.trim(),
+    phone: document.getElementById('a-phone').value.trim(),
+    date: document.getElementById('a-date').value,
+    time: document.getElementById('a-time').value,
+    service_id: service?.id,
+    service: service?.name,
+    price: service?.price,
+    channel: document.getElementById('a-channel').value,
+    notes: document.getElementById('a-notes').value,
+  };
+  if (!payload.name || !payload.phone || !payload.date || !payload.time || !payload.service_id) {
+    showToast('Complete todos los campos obligatorios.', 'error');
+    return;
+  }
+  try {
+    const created = await adminApi('/api/admin/appointments', { method: 'POST', body: JSON.stringify(payload) });
+    state.appointments.unshift(created);
+    refreshDashboard();
+    renderAppointmentsTable();
+    updatePendingBadge();
+    document.getElementById('a-name').value = '';
+    document.getElementById('a-phone').value = '';
+    document.getElementById('a-date').value = '';
+    document.getElementById('a-time').innerHTML = '<option value="">Seleccione fecha y servicio</option>';
+    document.getElementById('a-time').disabled = true;
+    document.getElementById('a-service').value = '';
+    document.getElementById('a-notes').value = '';
+    document.getElementById('admin-price-display').textContent = '-';
+    showToast('Cita registrada correctamente.');
+  } catch (error) {
+    showToast(error.message, 'error');
+    await refreshAdminCreateAvailability();
+  }
+}
+
+async function saveBusinessConfig() {
+  try {
+    await adminApi('/api/admin/config', { method: 'PATCH', body: JSON.stringify(getBusinessPayload()) });
+    await loadPublicData();
+    await loadAdminData();
+    await refreshPublicAvailability();
+    await refreshAdminCreateAvailability();
+    showToast('Configuracion guardada correctamente.');
+  } catch (error) {
+    showToast(error.message, 'error');
+  }
+}
+
+(function init() {
+  const isAdminRoute = window.location.pathname === '/admin';
+  const today = new Date().toISOString().slice(0, 10);
+  document.getElementById('f-date').min = today;
+  document.getElementById('a-date').min = today;
+  ensureBusinessSaveButton();
+  updateTodayLabel();
+  document.getElementById('f-time').innerHTML = '<option value="">Seleccione fecha y servicio</option>';
+  document.getElementById('f-time').disabled = true;
+  document.getElementById('a-time').innerHTML = '<option value="">Seleccione fecha y servicio</option>';
+  document.getElementById('a-time').disabled = true;
+  document.getElementById('f-date').addEventListener('change', refreshPublicAvailability);
+  document.getElementById('f-service').addEventListener('change', async () => { updatePrice(); await refreshPublicAvailability(); });
+  document.getElementById('a-date').addEventListener('change', refreshAdminCreateAvailability);
+  document.getElementById('a-service').addEventListener('change', async () => { updateAdminPrice(); await refreshAdminCreateAvailability(); });
+  document.getElementById('login-modal').addEventListener('click', function(event) { if (event.target === this) closeLoginModal(); });
+  document.getElementById('detail-modal').addEventListener('click', function(event) { if (event.target === this) closeDetail(); });
+  showPage(isAdminRoute ? 'booking' : 'booking');
+  if (isAdminRoute) {
+    document.getElementById('main-nav').style.display = 'none';
+    openLoginModal();
+  }
+  resetServiceForm();
+  loadPublicData().catch((error) => showToast(error.message, 'error'));
+})();
+</script>
+</body>
+</html>
