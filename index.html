@@ -773,6 +773,15 @@ function formatDate(value) {
   return `${day}/${month}/${year}`;
 }
 
+function getCurrentDateInMadrid() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Madrid',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date());
+}
+
 function formatDateTime(value) {
   if (!value) return '-';
   const parsed = new Date(value);
@@ -1300,7 +1309,7 @@ function buildTable(appointments) {
 }
 
 function refreshDashboard() {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getCurrentDateInMadrid();
   const todayAppointments = state.appointments.filter((appointment) => appointment.date === today).sort((a, b) => a.time.localeCompare(b.time));
   const confirmed = state.appointments.filter((appointment) => appointment.status === 'confirmed');
   const pending = state.appointments.filter((appointment) => ['new', 'pending'].includes(appointment.status));
@@ -1540,7 +1549,7 @@ async function saveBusinessConfig() {
 
 (function init() {
   const isAdminRoute = window.location.pathname === '/admin';
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getCurrentDateInMadrid();
   document.getElementById('f-date').min = today;
   document.getElementById('a-date').min = today;
   ensureBusinessSaveButton();

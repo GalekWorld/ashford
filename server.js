@@ -82,6 +82,15 @@ function getWhatsAppVerifyToken() {
   return process.env.WHATSAPP_VERIFY_TOKEN || 'ashford_verify_token_123';
 }
 
+function getCurrentDateInMadrid() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Madrid',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
+
 function getPgConfig() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
@@ -865,7 +874,7 @@ app.delete('/api/admin/appointments/:id', adminAuth, asyncHandler(async (req, re
 }));
 
 app.get('/api/admin/stats', adminAuth, asyncHandler(async (_req, res) => {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getCurrentDateInMadrid();
   const revenueGenerated = Number((await queryOne(
     "SELECT COALESCE(SUM(price), 0)::float AS v FROM appointments WHERE status = 'done'"
   )).v);
