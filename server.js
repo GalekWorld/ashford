@@ -811,23 +811,33 @@ app.patch('/api/admin/appointments/:id', adminAuth, asyncHandler(async (req, res
   const current = await queryOne('SELECT * FROM appointments WHERE id = $1', [req.params.id]);
   if (!current) return res.status(404).json({ error: 'No encontrada' });
 
-  const serviceRecord = await getServiceRecord(req.body.service_id || req.body.service || current.service);
-  if (!serviceRecord) return res.status(400).json({ error: 'Servicio no valido' });
+  const isServiceBeingChanged = req.body.service_id !== undefined || req.body.service !== undefined;
+  const isScheduleBeingChanged = isServiceBeingChanged || req.body.date !== undefined || req.body.time !== undefined;
+  const serviceRecord = isServiceBeingChanged
+    ? await getServiceRecord(req.body.service_id || req.body.service)
+    : await getServiceRecord(current.service);
+
+  if (isServiceBeingChanged && !serviceRecord) {
+    return res.status(400).json({ error: 'Servicio no valido' });
+  }
 
   const next = {
     name: req.body.name ?? current.name,
     phone: req.body.phone ?? current.phone,
     date: req.body.date ?? current.date,
     time: req.body.time ?? current.time,
-    service: serviceRecord.name,
-    price: req.body.price ?? serviceRecord.price ?? current.price,
+    service: serviceRecord?.name || current.service,
+    price: req.body.price ?? serviceRecord?.price ?? current.price,
     notes: req.body.notes ?? current.notes,
     status: req.body.status ?? current.status,
     channel: req.body.channel ?? current.channel,
   };
 
-  if (await hasConflict(next.date, next.time, Number(serviceRecord.duration_minutes), req.params.id)) {
-    return res.status(409).json({ error: 'Franja horaria no disponible' });
+  if (isScheduleBeingChanged) {
+    const durationMinutes = Number(serviceRecord?.duration_minutes || await getAppointmentDuration(current.service));
+    if (await hasConflict(next.date, next.time, durationMinutes, req.params.id)) {
+      return res.status(409).json({ error: 'Franja horaria no disponible' });
+    }
   }
 
   await query(
@@ -897,7 +907,28 @@ app.get('/api/admin/stats', adminAuth, asyncHandler(async (_req, res) => {
 }));
 
 app.get('/api/admin/logs', adminAuth, asyncHandler(async (_req, res) => {
-  res.json(await queryAll('SELECT * FROM change_logs ORDER BY created_at DESC LIMIT 100'));
+  res.json(await queryAll(`
+    SELECT *
+    FROM change_logs
+    WHERE
+      (entity_type = 'appointment' AND field_changed IN ('status', 'date', 'time', 'service'))
+      OR (entity_type = 'service' AND field_changed IN ('created', 'deleted', 'price', 'duration_minutes', 'active'))
+      OR (entity_type = 'business_config' AND field_changed IN (
+        'business_name',
+        'business_address',
+        'business_phone',
+        'business_email',
+        'business_whatsapp',
+        'opening_hours_weekday',
+        'opening_hours_saturday',
+        'opening_hours_sunday',
+        'lunch_break',
+        'slot_duration_minutes'
+      ))
+      OR (entity_type = 'whatsapp_test')
+    ORDER BY created_at DESC
+    LIMIT 100
+  `));
 }));
 
 app.get('/api/admin/notifications', adminAuth, asyncHandler(async (_req, res) => {
