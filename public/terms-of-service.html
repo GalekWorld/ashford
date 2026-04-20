@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Condiciones del Servicio | Ashford Barberia</title>
+  <meta name="description" content="Condiciones del servicio de Ashford Barberia para el uso de la web, reservas online y comunicaciones asociadas.">
+  <style>
+    :root {
+      --bg: #f5f1eb;
+      --surface: #ffffff;
+      --ink: #171513;
+      --muted: #5f564f;
+      --line: rgba(23,21,19,0.12);
+      --accent: #7a4d2b;
+      --accent-soft: rgba(122,77,43,0.1);
+      --shadow: 0 24px 50px rgba(44, 31, 21, 0.1);
+      --radius: 26px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Cambria, Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top center, rgba(122,77,43,0.15), transparent 25%),
+        linear-gradient(180deg, #faf7f2 0%, var(--bg) 100%);
+    }
+
+    .page {
+      width: min(980px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 34px 0 56px;
+    }
+
+    .hero, .section {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .hero {
+      padding: 32px;
+      margin-bottom: 22px;
+    }
+
+    .hero-mark {
+      display: inline-block;
+      margin-bottom: 12px;
+      padding: 9px 14px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    h1, h2 { margin: 0 0 12px; line-height: 1.12; }
+    h1 { font-size: clamp(2rem, 5vw, 3.4rem); }
+    h2 { font-size: clamp(1.2rem, 2.8vw, 1.7rem); }
+    p { margin: 0 0 14px; color: var(--muted); line-height: 1.68; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 0.95fr 1.05fr;
+      gap: 22px;
+      align-items: start;
+    }
+
+    .section {
+      padding: 26px;
+    }
+
+    .section + .section {
+      margin-top: 20px;
+    }
+
+    .list {
+      display: grid;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .list-item {
+      padding: 14px 16px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: #fcfbfa;
+    }
+
+    .aside-note {
+      padding: 16px 18px;
+      border-radius: 20px;
+      background: linear-gradient(180deg, rgba(122,77,43,0.08), rgba(255,255,255,1));
+      border: 1px solid rgba(122,77,43,0.16);
+      color: var(--ink);
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .footer {
+      text-align: center;
+      margin-top: 22px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    @media (max-width: 780px) {
+      .page { width: min(100% - 20px, 980px); padding: 20px 0 40px; }
+      .hero, .section { border-radius: 22px; }
+      .hero, .section { padding: 22px; }
+      .layout { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div class="hero-mark">Ashford Barberia</div>
+      <h1>Condiciones del Servicio</h1>
+      <p>Estas condiciones regulan el acceso y uso de la web de Ashford Barberia, asi como la solicitud y gestion de reservas, comunicaciones operativas y servicios vinculados a nuestra actividad.</p>
+      <p>Ultima actualizacion: 20 de abril de 2026.</p>
+    </section>
+
+    <section class="layout">
+      <div>
+        <article class="section">
+          <h2>1. Objeto del servicio</h2>
+          <p>La web permite consultar informacion del negocio y solicitar citas para servicios de peluqueria y barberia. La disponibilidad, precios, duraciones y condiciones pueden actualizarse en cualquier momento para reflejar la operativa real del establecimiento.</p>
+        </article>
+
+        <article class="section">
+          <h2>2. Reservas</h2>
+          <div class="list">
+            <div class="list-item">La reserva se considera solicitada cuando el usuario completa el formulario y se registra correctamente en el sistema.</div>
+            <div class="list-item">La confirmacion definitiva puede depender de revision interna, disponibilidad real o contacto posterior con el cliente.</div>
+            <div class="list-item">Ashford Barberia podra rechazar o reprogramar solicitudes en caso de error tecnico, duplicidad, falta de disponibilidad o causas operativas justificadas.</div>
+          </div>
+        </article>
+
+        <article class="section">
+          <h2>3. Datos facilitados por el usuario</h2>
+          <p>El usuario se compromete a proporcionar informacion veraz, actual y suficiente para gestionar la reserva. Si los datos son incorrectos o incompletos, la prestacion del servicio o las comunicaciones asociadas podrian verse afectadas.</p>
+        </article>
+
+        <article class="section">
+          <h2>4. Cancelaciones, cambios y no asistencia</h2>
+          <p>Los cambios y cancelaciones deben solicitarse con la mayor antelacion posible. La no asistencia o los cambios reiterados de ultima hora podran afectar a futuras reservas si alteran de forma relevante la organizacion del servicio.</p>
+        </article>
+      </div>
+
+      <div>
+        <article class="section">
+          <h2>5. Precios y contenido de la web</h2>
+          <p>Intentamos mantener la informacion de la web actualizada, pero puede haber cambios en servicios, horarios, duraciones o precios. En caso de discrepancia evidente o error material, prevalecera la informacion confirmada directamente por el negocio.</p>
+        </article>
+
+        <article class="section">
+          <h2>6. Uso permitido</h2>
+          <div class="list">
+            <div class="list-item">No esta permitido usar la web para enviar informacion falsa, suplantar a terceros o realizar reservas fraudulentas.</div>
+            <div class="list-item">Tampoco se permite interferir con el funcionamiento tecnico del sitio o intentar acceder a zonas no autorizadas.</div>
+          </div>
+        </article>
+
+        <article class="section">
+          <h2>7. Responsabilidad</h2>
+          <p>Ashford Barberia no sera responsable de interrupciones temporales, incidencias ajenas a su control razonable, errores derivados de servicios de terceros o problemas de conectividad que afecten a la disponibilidad puntual de la web.</p>
+          <p>En todo caso, se actuara con diligencia razonable para restaurar el servicio y atender incidencias cuando sea posible.</p>
+        </article>
+
+        <article class="section">
+          <h2>8. Privacidad y comunicaciones</h2>
+          <p>El tratamiento de datos personales se regula por nuestra <a href="/privacy-policy">Politica de Privacidad</a>. Algunas notificaciones operativas podrian gestionarse mediante proveedores externos, incluida mensajeria empresarial, cuando resulte necesario para el funcionamiento del servicio.</p>
+        </article>
+
+        <article class="section">
+          <h2>9. Contacto</h2>
+          <div class="aside-note">
+            <p><strong>Ashford Barberia</strong></p>
+            <p>Calle Mayor 42, 28001 Madrid</p>
+            <p>Correo: <a href="mailto:info@ashford.es">info@ashford.es</a></p>
+            <p>Telefono: <a href="tel:+34911234567">+34 911 234 567</a></p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <div class="footer">
+      <a href="/">Volver a la web</a> · <a href="/privacy-policy">Politica de privacidad</a> · <a href="/data-deletion">Eliminacion de datos</a>
+    </div>
+  </main>
+</body>
+</html>

@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eliminacion de Datos | Ashford Barberia</title>
+  <meta name="description" content="Instrucciones para solicitar la eliminacion de datos personales en Ashford Barberia.">
+  <style>
+    :root {
+      --bg: #f7f4ef;
+      --paper: #ffffff;
+      --ink: #1d1b19;
+      --muted: #60574f;
+      --line: rgba(29,27,25,0.12);
+      --accent: #1c6b5b;
+      --accent-soft: rgba(28,107,91,0.1);
+      --shadow: 0 24px 60px rgba(28, 39, 36, 0.1);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Trebuchet MS", Verdana, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top right, rgba(28,107,91,0.16), transparent 26%),
+        linear-gradient(180deg, #fbfaf8 0%, var(--bg) 100%);
+    }
+
+    .shell {
+      width: min(920px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 36px 0 54px;
+    }
+
+    .hero, .panel {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      box-shadow: var(--shadow);
+    }
+
+    .hero {
+      padding: 30px;
+      margin-bottom: 22px;
+    }
+
+    .hero-tag {
+      display: inline-block;
+      font-size: 12px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 10px;
+      font-weight: 700;
+    }
+
+    h1, h2 { margin: 0 0 12px; line-height: 1.1; }
+    h1 { font-size: clamp(2rem, 4.5vw, 3.2rem); }
+    h2 { font-size: clamp(1.2rem, 2.6vw, 1.6rem); }
+    p { margin: 0 0 14px; color: var(--muted); line-height: 1.65; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 22px;
+    }
+
+    .panel {
+      padding: 26px;
+    }
+
+    .steps {
+      display: grid;
+      gap: 14px;
+      margin-top: 10px;
+    }
+
+    .step {
+      display: grid;
+      grid-template-columns: 44px 1fr;
+      gap: 14px;
+      align-items: start;
+      padding: 14px;
+      background: #fcfcfb;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+    }
+
+    .badge {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      font-size: 18px;
+    }
+
+    .callout {
+      padding: 16px 18px;
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(28,107,91,0.08), rgba(255,255,255,1));
+      border: 1px solid rgba(28,107,91,0.16);
+      color: var(--ink);
+    }
+
+    .meta {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .meta span {
+      background: #f2f7f5;
+      color: var(--accent);
+      border: 1px solid rgba(28,107,91,0.12);
+      border-radius: 999px;
+      padding: 9px 13px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .footer {
+      text-align: center;
+      margin-top: 20px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    @media (max-width: 760px) {
+      .shell { width: min(100% - 20px, 920px); padding: 20px 0 36px; }
+      .hero, .panel { border-radius: 22px; }
+      .hero, .panel { padding: 22px; }
+      .grid { grid-template-columns: 1fr; }
+      .step { grid-template-columns: 40px 1fr; gap: 12px; }
+      .badge { width: 40px; height: 40px; border-radius: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div class="hero-tag">Gestion de datos</div>
+      <h1>Solicitud de eliminacion de datos</h1>
+      <p>Si has utilizado nuestra web, has realizado una reserva o has mantenido comunicaciones con Ashford Barberia, puedes solicitar la eliminacion de tus datos personales siguiendo las instrucciones de esta pagina.</p>
+      <div class="meta">
+        <span>Respuesta orientativa: 7 a 30 dias</span>
+        <span>Canal principal: correo electronico</span>
+      </div>
+    </section>
+
+    <section class="grid">
+      <article class="panel">
+        <h2>Como solicitar la eliminacion</h2>
+        <div class="steps">
+          <div class="step">
+            <div class="badge">1</div>
+            <div>
+              <p><strong>Escribe a nuestro correo de soporte.</strong></p>
+              <p>Envianos tu solicitud a <a href="mailto:info@ashford.es?subject=Solicitud%20de%20eliminacion%20de%20datos">info@ashford.es</a> indicando que deseas la eliminacion de tus datos.</p>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="badge">2</div>
+            <div>
+              <p><strong>Identifica los datos que quieres eliminar.</strong></p>
+              <p>Incluye tu nombre, telefono, correo y cualquier informacion que nos ayude a localizar tu reserva o conversacion.</p>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="badge">3</div>
+            <div>
+              <p><strong>Verificaremos tu identidad si es necesario.</strong></p>
+              <p>Podemos pedir informacion adicional razonable para asegurarnos de que la solicitud corresponde realmente al titular de los datos.</p>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="badge">4</div>
+            <div>
+              <p><strong>Te confirmaremos el resultado.</strong></p>
+              <p>Una vez tramitada la solicitud, te informaremos de la eliminacion realizada o, si procede, de los datos que deban conservarse por motivos legales.</p>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="panel">
+        <h2>Informacion util</h2>
+        <div class="callout">
+          <p><strong>Correo de contacto:</strong> <a href="mailto:info@ashford.es">info@ashford.es</a></p>
+          <p><strong>Telefono:</strong> <a href="tel:+34911234567">+34 911 234 567</a></p>
+          <p><strong>Direccion:</strong> Calle Mayor 42, 28001 Madrid</p>
+        </div>
+        <p style="margin-top:16px;">Determinados registros podrian conservarse temporalmente cuando exista una obligacion legal, una necesidad de defensa ante reclamaciones o motivos de seguridad del servicio.</p>
+        <p>Si la solicitud afecta a mensajes enviados mediante plataformas de terceros, la eliminacion podra quedar tambien sujeta a las politicas y limitaciones tecnicas de dichos proveedores.</p>
+      </article>
+    </section>
+
+    <div class="footer">
+      <a href="/privacy-policy">Ver politica de privacidad</a> · <a href="/">Volver a la web</a>
+    </div>
+  </main>
+</body>
+</html>

@@ -472,6 +472,18 @@ app.get('/admin', (_req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+app.get('/privacy-policy', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'privacy-policy.html'));
+});
+
+app.get('/data-deletion', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'data-deletion.html'));
+});
+
+app.get('/terms-of-service', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'terms-of-service.html'));
+});
+
 app.post('/api/appointments', asyncHandler(async (req, res) => {
   const { name, phone, date, time, service, service_id, price, notes, channel = 'web' } = req.body;
   if (!name || !phone || !date || !time || !(service || service_id)) {
