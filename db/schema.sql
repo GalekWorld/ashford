@@ -95,22 +95,3 @@ CREATE TABLE IF NOT EXISTS notification_queue (
 CREATE INDEX IF NOT EXISTS idx_appointments_date_status ON appointments (date, status);
 CREATE INDEX IF NOT EXISTS idx_appointments_status ON appointments (status);
 CREATE INDEX IF NOT EXISTS idx_notification_queue_appointment ON notification_queue (appointment_id);
-
-CREATE TABLE IF NOT EXISTS phone_call_sessions (
-  id TEXT PRIMARY KEY,
-  external_call_id TEXT UNIQUE NOT NULL,
-  caller_phone TEXT,
-  status TEXT DEFAULT 'active',
-  current_step TEXT DEFAULT 'intent',
-  collected_data TEXT DEFAULT '{}',
-  notes TEXT,
-  review_reason TEXT,
-  resolved_appointment_id TEXT,
-  last_event_at TIMESTAMPTZ DEFAULT NOW(),
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  CONSTRAINT fk_phone_call_sessions_appointment FOREIGN KEY (resolved_appointment_id) REFERENCES appointments(id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_phone_call_sessions_status ON phone_call_sessions (status);
-CREATE INDEX IF NOT EXISTS idx_phone_call_sessions_external_call_id ON phone_call_sessions (external_call_id);
