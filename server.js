@@ -246,6 +246,16 @@ function getWhatsAppConfirmationTemplateLanguage(payload = {}) {
   return payload.template_language || process.env.WHATSAPP_CONFIRM_TEMPLATE_LANGUAGE || 'es';
 }
 
+function shouldUseBusinessTemplate(payload = {}) {
+  const templateName = getWhatsAppTemplateName(payload);
+  return payload.use_template === true || process.env.WHATSAPP_USE_TEMPLATES === '1' || templateName === 'hello_world';
+}
+
+function shouldUseConfirmationTemplate(payload = {}) {
+  const templateName = getWhatsAppConfirmationTemplateName(payload);
+  return payload.use_template === true || process.env.WHATSAPP_CONFIRM_USE_TEMPLATES === '1' || templateName === 'hello_world';
+}
+
 function buildWhatsAppTemplatePayload(to, payload = {}) {
   const templateName = getWhatsAppTemplateName(payload);
   if (!templateName) return null;
@@ -633,7 +643,7 @@ app.post('/api/appointments', asyncHandler(async (req, res) => {
   if (notifyTo) {
     await queueNotification(id, 'new_appointment_barber', 'whatsapp', notifyTo, {
       message: `Nueva cita solicitada: ${name} - ${serviceRecord.name} - ${date} ${time}`,
-      use_template: process.env.WHATSAPP_USE_TEMPLATES === '1',
+      use_template: shouldUseBusinessTemplate(),
       template_name: getWhatsAppTemplateName({
         template_name: process.env.WHATSAPP_TEMPLATE_NAME || 'cita_peluquero_info',
       }),
@@ -867,7 +877,7 @@ app.patch('/api/admin/appointments/:id', adminAuth, asyncHandler(async (req, res
     if (updated.status === 'confirmed') {
       await queueNotification(updated.id, 'appointment_confirmed', 'whatsapp', updated.phone, {
         message: `Tu cita en Ashford esta confirmada para ${updated.date} a las ${updated.time}.`,
-        use_template: process.env.WHATSAPP_CONFIRM_USE_TEMPLATES !== '0',
+        use_template: shouldUseConfirmationTemplate(),
         template_name: getWhatsAppConfirmationTemplateName(),
         template_language: getWhatsAppConfirmationTemplateLanguage(),
         template_params: [updated.name, updated.service, updated.date, updated.time],
@@ -958,7 +968,7 @@ app.post('/api/admin/test-whatsapp', adminAuth, asyncHandler(async (req, res) =>
   const defaultMessage = req.body?.message || 'Prueba de WhatsApp desde Ashford. Si recibes este mensaje, la integracion esta funcionando.';
   const result = await NotificationService.sendWhatsApp(to, {
     message: defaultMessage,
-    use_template: req.body?.use_template === true || Boolean(templateName),
+    use_template: shouldUseBusinessTemplate(req.body || {}),
     template_name: templateName,
     template_language: req.body?.template_language,
     template_params: Array.isArray(req.body?.template_params) ? req.body.template_params : [],
