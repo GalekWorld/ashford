@@ -1212,7 +1212,12 @@ app.post('/api/appointments', asyncHandler(async (req, res) => {
   if (notifyTo) {
     await queueNotification(id, 'new_appointment_barber', 'whatsapp', notifyTo, {
       message: `Nueva cita solicitada: ${name} - ${serviceRecord.name} - ${date} ${time}`,
-      use_template: false,
+      use_template: shouldUseBusinessTemplate(),
+      template_name: getWhatsAppTemplateName({
+        template_name: process.env.WHATSAPP_TEMPLATE_NAME || 'cita_peluquero_info',
+      }),
+      template_language: process.env.WHATSAPP_TEMPLATE_LANGUAGE || 'es',
+      template_params: [name, serviceRecord.name, date, time, phone],
     });
   }
   if (config.business_email) {
