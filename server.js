@@ -203,7 +203,7 @@ async function queueNotification(appointmentId, type, channel, recipient, payloa
      VALUES ($1, $2, $3, $4, $5, $6)`,
     [notificationId, appointmentId, type, channel, recipient, JSON.stringify(payload)]
   );
-  NotificationService.dispatch({ notificationId, appointmentId, type, channel, recipient, payload }).catch((error) => {
+  await NotificationService.dispatch({ notificationId, appointmentId, type, channel, recipient, payload }).catch((error) => {
     console.error(`[notify:${channel}] failed`, error.message);
   });
 }
@@ -236,6 +236,14 @@ function getWhatsAppTemplateName(payload = {}) {
 
 function getWhatsAppTemplateLanguage(payload = {}) {
   return payload.template_language || process.env.WHATSAPP_TEMPLATE_LANGUAGE || 'es';
+}
+
+function getWhatsAppConfirmationTemplateName(payload = {}) {
+  return payload.template_name || process.env.WHATSAPP_CONFIRM_TEMPLATE_NAME || 'cita_confirmada_cliente';
+}
+
+function getWhatsAppConfirmationTemplateLanguage(payload = {}) {
+  return payload.template_language || process.env.WHATSAPP_CONFIRM_TEMPLATE_LANGUAGE || 'es';
 }
 
 function buildWhatsAppTemplatePayload(to, payload = {}) {
@@ -858,7 +866,10 @@ app.patch('/api/admin/appointments/:id', adminAuth, asyncHandler(async (req, res
     if (updated.status === 'confirmed') {
       await queueNotification(updated.id, 'appointment_confirmed', 'whatsapp', updated.phone, {
         message: `Tu cita en Ashford esta confirmada para ${updated.date} a las ${updated.time}.`,
-        use_template: false,
+        use_template: process.env.WHATSAPP_CONFIRM_USE_TEMPLATES !== '0',
+        template_name: getWhatsAppConfirmationTemplateName(),
+        template_language: getWhatsAppConfirmationTemplateLanguage(),
+        template_params: [updated.name, updated.service, updated.date, updated.time],
       });
     }
     if (updated.status === 'cancelled') {

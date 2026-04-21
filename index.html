@@ -757,6 +757,8 @@ const state = {
   isLoggedIn: false,
   currentDetailId: null,
   editingServiceId: null,
+  liveRefreshTimer: null,
+  liveRefreshPending: false,
 };
 
 function esc(value) {
@@ -1171,6 +1173,66 @@ async function loadAdminData() {
   renderNotifications();
 }
 
+function getActiveAdminViewName() {
+  const activeView = document.querySelector('.admin-view.active');
+  return activeView ? activeView.id.replace('view-', '') : '';
+}
+
+function shouldRunLiveRefresh() {
+  if (!state.isLoggedIn) return false;
+  if (!document.getElementById('page-admin').classList.contains('active')) return false;
+  if (document.hidden) return false;
+  if (document.getElementById('detail-modal').classList.contains('open')) return false;
+  return ['dashboard', 'appointments', 'integrations'].includes(getActiveAdminViewName());
+}
+
+async function refreshAdminLiveData() {
+  if (!shouldRunLiveRefresh() || state.liveRefreshPending) return;
+  state.liveRefreshPending = true;
+
+  try {
+    const [appointments, stats, notifications] = await Promise.all([
+      adminApi('/api/admin/appointments'),
+      adminApi('/api/admin/stats'),
+      adminApi('/api/admin/notifications'),
+    ]);
+
+    state.appointments = appointments;
+    state.stats = stats;
+    state.notifications = notifications;
+
+    updatePendingBadge();
+
+    const activeView = getActiveAdminViewName();
+    if (activeView === 'dashboard') {
+      refreshDashboard();
+      updateTodayLabel();
+    }
+    if (activeView === 'appointments') {
+      renderAppointmentsTable();
+    }
+    if (activeView === 'integrations') {
+      renderNotifications();
+    }
+  } catch (_error) {
+    // Silent polling keeps the panel smooth if one request fails temporarily.
+  } finally {
+    state.liveRefreshPending = false;
+  }
+}
+
+function startAdminLiveRefresh() {
+  stopAdminLiveRefresh();
+  state.liveRefreshTimer = setInterval(refreshAdminLiveData, 2000);
+}
+
+function stopAdminLiveRefresh() {
+  if (state.liveRefreshTimer) {
+    clearInterval(state.liveRefreshTimer);
+    state.liveRefreshTimer = null;
+  }
+}
+
 async function loadNotifications() {
   try {
     state.notifications = await adminApi('/api/admin/notifications');
@@ -1227,6 +1289,7 @@ async function doLogin() {
 
 function logout() {
   state.isLoggedIn = false;
+  stopAdminLiveRefresh();
   if (window.location.pathname === '/admin') {
     window.location.href = '/';
     return;
@@ -1247,6 +1310,7 @@ async function showAdminPanel() {
   await loadAdminData();
   showPage('admin');
   updateTodayLabel();
+  startAdminLiveRefresh();
 }
 
 function switchView(name, element) {
@@ -1265,6 +1329,9 @@ function switchView(name, element) {
   if (name === 'business') fillBusinessForm();
   if (name === 'services') renderAdminServices();
   if (name === 'integrations') renderNotifications();
+  if (['dashboard', 'appointments', 'integrations'].includes(name)) {
+    refreshAdminLiveData();
+  }
 }
 
 function updateTodayLabel() {
@@ -1564,6 +1631,9 @@ async function saveBusinessConfig() {
   document.getElementById('a-service').addEventListener('change', async () => { updateAdminPrice(); await refreshAdminCreateAvailability(); });
   document.getElementById('login-modal').addEventListener('click', function(event) { if (event.target === this) closeLoginModal(); });
   document.getElementById('detail-modal').addEventListener('click', function(event) { if (event.target === this) closeDetail(); });
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) refreshAdminLiveData();
+  });
   showPage(isAdminRoute ? 'booking' : 'booking');
   if (isAdminRoute) {
     document.getElementById('main-nav').style.display = 'none';
