@@ -261,7 +261,8 @@ function buildWhatsAppTemplatePayload(to, payload = {}) {
   };
 
   const templateParams = Array.isArray(payload.template_params) ? payload.template_params.filter((item) => item !== undefined && item !== null && String(item) !== '') : [];
-  if (templateParams.length) {
+  const shouldAttachParams = templateName !== 'hello_world';
+  if (shouldAttachParams && templateParams.length) {
     body.template.components = [
       {
         type: 'body',
