@@ -183,6 +183,7 @@ async function initDb() {
   await query(schemaSql);
   await query('ALTER TABLE clients ADD COLUMN IF NOT EXISTS phone_normalized TEXT');
   clientPhoneNormalizedColumnState = true;
+  await query('CREATE INDEX IF NOT EXISTS idx_clients_phone_normalized ON clients (phone_normalized)');
   await query('ALTER TABLE notification_queue ADD COLUMN IF NOT EXISTS provider_message_id TEXT');
   await query('ALTER TABLE notification_queue ADD COLUMN IF NOT EXISTS error_message TEXT');
   await query('ALTER TABLE notification_queue ADD COLUMN IF NOT EXISTS response_payload TEXT');

@@ -96,5 +96,4 @@ CREATE TABLE IF NOT EXISTS notification_queue (
 CREATE INDEX IF NOT EXISTS idx_appointments_date_status ON appointments (date, status);
 CREATE INDEX IF NOT EXISTS idx_appointments_status ON appointments (status);
 CREATE INDEX IF NOT EXISTS idx_appointments_client_id ON appointments (client_id);
-CREATE INDEX IF NOT EXISTS idx_clients_phone_normalized ON clients (phone_normalized);
 CREATE INDEX IF NOT EXISTS idx_notification_queue_appointment ON notification_queue (appointment_id);
