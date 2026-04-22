@@ -247,13 +247,11 @@ function getWhatsAppConfirmationTemplateLanguage(payload = {}) {
 }
 
 function shouldUseBusinessTemplate(payload = {}) {
-  const templateName = getWhatsAppTemplateName(payload);
-  return payload.use_template === true || process.env.WHATSAPP_USE_TEMPLATES === '1' || templateName === 'hello_world';
+  return payload.use_template === true || process.env.WHATSAPP_USE_TEMPLATES === '1';
 }
 
 function shouldUseConfirmationTemplate(payload = {}) {
-  const templateName = getWhatsAppConfirmationTemplateName(payload);
-  return payload.use_template === true || process.env.WHATSAPP_CONFIRM_USE_TEMPLATES === '1' || templateName === 'hello_world';
+  return payload.use_template === true || process.env.WHATSAPP_CONFIRM_USE_TEMPLATES === '1';
 }
 
 function buildWhatsAppTemplatePayload(to, payload = {}) {
@@ -647,7 +645,7 @@ app.post('/api/appointments', asyncHandler(async (req, res) => {
       template_name: getWhatsAppTemplateName({
         template_name: process.env.WHATSAPP_TEMPLATE_NAME || 'cita_peluquero_info',
       }),
-      template_language: process.env.WHATSAPP_TEMPLATE_LANGUAGE || 'es',
+      template_language: process.env.WHATSAPP_TEMPLATE_LANGUAGE || 'en',
       template_params: [name, serviceRecord.name, date, time, phone],
     });
   }
