@@ -134,6 +134,7 @@ function getPgConfig() {
 }
 
 const pool = new Pool(getPgConfig());
+let clientPhoneNormalizedColumnState = null;
 
 async function query(text, params = []) {
   return pool.query(text, params);
@@ -146,6 +147,19 @@ async function queryAll(text, params = []) {
 async function queryOne(text, params = []) {
   const rows = await queryAll(text, params);
   return rows[0] || null;
+}
+
+async function clientPhoneNormalizedColumnExists() {
+  if (clientPhoneNormalizedColumnState !== null) return clientPhoneNormalizedColumnState;
+  const row = await queryOne(
+    `SELECT EXISTS (
+       SELECT 1
+       FROM information_schema.columns
+       WHERE table_name = 'clients' AND column_name = 'phone_normalized'
+     ) AS present`
+  );
+  clientPhoneNormalizedColumnState = Boolean(row?.present);
+  return clientPhoneNormalizedColumnState;
 }
 
 async function withTransaction(work) {
@@ -168,6 +182,7 @@ async function initDb() {
   const schemaSql = fs.readFileSync(schemaPath, 'utf8');
   await query(schemaSql);
   await query('ALTER TABLE clients ADD COLUMN IF NOT EXISTS phone_normalized TEXT');
+  clientPhoneNormalizedColumnState = true;
   await query('ALTER TABLE notification_queue ADD COLUMN IF NOT EXISTS provider_message_id TEXT');
   await query('ALTER TABLE notification_queue ADD COLUMN IF NOT EXISTS error_message TEXT');
   await query('ALTER TABLE notification_queue ADD COLUMN IF NOT EXISTS response_payload TEXT');
@@ -251,6 +266,14 @@ function normalizeClientPhone(phone) {
   return digits;
 }
 
+const SQL_NORMALIZED_CLIENT_PHONE = `
+  CASE
+    WHEN regexp_replace(COALESCE(phone, ''), '\\D', '', 'g') LIKE '34%' THEN regexp_replace(COALESCE(phone, ''), '\\D', '', 'g')
+    WHEN length(regexp_replace(COALESCE(phone, ''), '\\D', '', 'g')) = 9 THEN '34' || regexp_replace(COALESCE(phone, ''), '\\D', '', 'g')
+    ELSE regexp_replace(COALESCE(phone, ''), '\\D', '', 'g')
+  END
+`;
+
 function adminAuth(req, res, next) {
   const auth = req.headers.authorization;
   if (!auth || auth !== `Bearer ${getAdminToken()}`) {
@@ -291,9 +314,18 @@ function shouldUseBusinessTemplate(payload = {}) {
 
 async function findClientByNormalizedPhone(phoneNormalized) {
   if (!phoneNormalized) return null;
+  if (await clientPhoneNormalizedColumnExists()) {
+    return queryOne(
+      `SELECT * FROM clients
+       WHERE phone_normalized = $1 OR ${SQL_NORMALIZED_CLIENT_PHONE} = $1
+       ORDER BY created_at ASC
+       LIMIT 1`,
+      [phoneNormalized]
+    );
+  }
   return queryOne(
     `SELECT * FROM clients
-     WHERE phone_normalized = $1 OR REPLACE(REPLACE(phone, ' ', ''), '+', '') = $1
+     WHERE ${SQL_NORMALIZED_CLIENT_PHONE} = $1
      ORDER BY created_at ASC
      LIMIT 1`,
     [phoneNormalized]
@@ -315,35 +347,56 @@ async function upsertClientForAppointment({ name, phone, channel = 'web', notes 
 
   if (!client) {
     const id = uid();
-    await query(
-      `INSERT INTO clients (id, name, phone, phone_normalized, notes, source)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [id, String(name || '').trim() || phoneNormalized, String(phone || '').trim(), phoneNormalized, String(notes || '').trim(), normalizeChannel(channel, 'web')]
-    );
+    if (await clientPhoneNormalizedColumnExists()) {
+      await query(
+        `INSERT INTO clients (id, name, phone, phone_normalized, notes, source)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [id, String(name || '').trim() || phoneNormalized, String(phone || '').trim(), phoneNormalized, String(notes || '').trim(), normalizeChannel(channel, 'web')]
+      );
+    } else {
+      await query(
+        `INSERT INTO clients (id, name, phone, notes, source)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [id, String(name || '').trim() || phoneNormalized, String(phone || '').trim(), String(notes || '').trim(), normalizeChannel(channel, 'web')]
+      );
+    }
     return queryOne('SELECT * FROM clients WHERE id = $1', [id]);
   }
 
   const nextName = String(name || '').trim() || client.name;
   const nextPhone = String(phone || '').trim() || client.phone;
   const nextNotes = client.notes || String(notes || '').trim() || '';
-  await query(
-    `UPDATE clients
-     SET name = $1,
-         phone = $2,
-         phone_normalized = $3,
-         notes = $4,
-         updated_at = NOW()
-     WHERE id = $5`,
-    [nextName, nextPhone, phoneNormalized, nextNotes, client.id]
-  );
+  if (await clientPhoneNormalizedColumnExists()) {
+    await query(
+      `UPDATE clients
+       SET name = $1,
+           phone = $2,
+           phone_normalized = $3,
+           notes = $4,
+           updated_at = NOW()
+       WHERE id = $5`,
+      [nextName, nextPhone, phoneNormalized, nextNotes, client.id]
+    );
+  } else {
+    await query(
+      `UPDATE clients
+       SET name = $1,
+           phone = $2,
+           notes = $3,
+           updated_at = NOW()
+       WHERE id = $4`,
+      [nextName, nextPhone, nextNotes, client.id]
+    );
+  }
   return queryOne('SELECT * FROM clients WHERE id = $1', [client.id]);
 }
 
 async function backfillClientsFromAppointments() {
-  const clients = await queryAll('SELECT id, phone, phone_normalized FROM clients');
+  const hasPhoneNormalized = await clientPhoneNormalizedColumnExists();
+  const clients = await queryAll(`SELECT id, phone${hasPhoneNormalized ? ', phone_normalized' : ''} FROM clients`);
   for (const client of clients) {
-    const normalized = normalizeClientPhone(client.phone_normalized || client.phone);
-    if (normalized && normalized !== client.phone_normalized) {
+    const normalized = normalizeClientPhone((hasPhoneNormalized ? client.phone_normalized : '') || client.phone);
+    if (hasPhoneNormalized && normalized && normalized !== client.phone_normalized) {
       await query('UPDATE clients SET phone_normalized = $1, updated_at = NOW() WHERE id = $2', [normalized, client.id]);
     }
   }
@@ -1180,13 +1233,14 @@ app.delete('/api/admin/appointments/:id/permanent', adminAuth, asyncHandler(asyn
 
 app.get('/api/admin/clients', adminAuth, asyncHandler(async (req, res) => {
   const search = String(req.query.search || '').trim();
+  const hasPhoneNormalized = await clientPhoneNormalizedColumnExists();
   const clients = await queryAll(
     search
       ? `SELECT *
          FROM clients
          WHERE LOWER(name) LIKE LOWER($1)
             OR phone LIKE $2
-            OR phone_normalized LIKE $2
+            OR ${(hasPhoneNormalized ? 'phone_normalized' : SQL_NORMALIZED_CLIENT_PHONE)} LIKE $2
          ORDER BY updated_at DESC, created_at DESC
          LIMIT 100`
       : `SELECT *
