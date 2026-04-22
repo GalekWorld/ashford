@@ -91,6 +91,24 @@ function getCurrentDateInMadrid() {
   }).format(new Date());
 }
 
+function getCurrentTimeInMadrid() {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Madrid',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date());
+}
+
+function isPastAppointmentSlot(date, time) {
+  if (!date || !time) return false;
+  if (date !== getCurrentDateInMadrid()) return false;
+  const slotMinutes = toMinutes(time);
+  const currentMinutes = toMinutes(getCurrentTimeInMadrid());
+  if (slotMinutes === null || currentMinutes === null) return false;
+  return slotMinutes <= currentMinutes;
+}
+
 function getPgConfig() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
@@ -410,6 +428,9 @@ async function getAvailableSlots(date, durationMinutes, excludeId = null) {
 
   for (const window of windows) {
     for (let cursor = window.start; cursor + durationMinutes <= window.end; cursor += slotStep) {
+      if (date === getCurrentDateInMadrid() && cursor <= toMinutes(getCurrentTimeInMadrid())) {
+        continue;
+      }
       const overlaps = existing.some((appointment) => rangesOverlap(cursor, cursor + durationMinutes, appointment.start, appointment.end));
       const slot = toTimeString(cursor);
       if (overlaps) {
@@ -613,6 +634,7 @@ app.get('/terms-of-service', (_req, res) => {
 });
 
 app.post('/api/appointments', asyncHandler(async (req, res) => {
+  console.log('REQ BODY APPOINTMENT:', req.body);
   const { name, phone, date, time, service, service_id, price, notes, channel = 'web' } = req.body;
   if (!name || !phone || !date || !time || !(service || service_id)) {
     return res.status(400).json({ error: 'Faltan campos obligatorios' });
@@ -621,6 +643,10 @@ app.post('/api/appointments', asyncHandler(async (req, res) => {
   const serviceRecord = await getServiceRecord(service_id || service);
   if (!serviceRecord) {
     return res.status(400).json({ error: 'Servicio no valido' });
+  }
+
+  if (isPastAppointmentSlot(date, time)) {
+    return res.status(409).json({ error: 'No puedes reservar una hora que ya ha pasado.' });
   }
 
   if (await hasConflict(date, time, Number(serviceRecord.duration_minutes))) {
@@ -665,6 +691,7 @@ app.post('/api/appointments', asyncHandler(async (req, res) => {
     channel,
   });
 
+  console.log('ABOUT TO RESPOND OK');
   res.status(201).json(await queryOne('SELECT * FROM appointments WHERE id = $1', [id]));
 }));
 
@@ -809,6 +836,10 @@ app.post('/api/admin/appointments', adminAuth, asyncHandler(async (req, res) => 
     return res.status(400).json({ error: 'Servicio no valido' });
   }
 
+  if (isPastAppointmentSlot(date, time)) {
+    return res.status(409).json({ error: 'No puedes registrar una cita en una hora ya pasada.' });
+  }
+
   if (await hasConflict(date, time, Number(serviceRecord.duration_minutes))) {
     return res.status(409).json({ error: 'Franja horaria no disponible' });
   }
@@ -851,6 +882,9 @@ app.patch('/api/admin/appointments/:id', adminAuth, asyncHandler(async (req, res
   };
 
   if (isScheduleBeingChanged) {
+    if (isPastAppointmentSlot(next.date, next.time)) {
+      return res.status(409).json({ error: 'No puedes mover la cita a una hora ya pasada.' });
+    }
     const durationMinutes = Number(serviceRecord?.duration_minutes || await getAppointmentDuration(current.service));
     if (await hasConflict(next.date, next.time, durationMinutes, req.params.id)) {
       return res.status(409).json({ error: 'Franja horaria no disponible' });

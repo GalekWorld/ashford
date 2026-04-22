@@ -746,6 +746,7 @@
 
   <script>
 const AUTH = { user: 'admin', pass: 'ashford2024', token: 'ashford-admin-token' };
+const ADMIN_SESSION_KEY = 'ashford_admin_session';
 const state = {
   services: [],
   adminServices: [],
@@ -816,6 +817,61 @@ function adminHeaders(extra = {}) {
     'Authorization': `Bearer ${AUTH.token}`,
     ...extra,
   };
+}
+
+function hasAdminSession() {
+  return sessionStorage.getItem(ADMIN_SESSION_KEY) === '1';
+}
+
+function setAdminSession(enabled) {
+  if (enabled) {
+    sessionStorage.setItem(ADMIN_SESSION_KEY, '1');
+  } else {
+    sessionStorage.removeItem(ADMIN_SESSION_KEY);
+  }
+}
+
+function normalizePhoneForSubmission(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('34')) return `+${digits}`;
+  return `+34${digits}`;
+}
+
+function ensurePhonePrefixValue(input) {
+  if (!input) return;
+  if (!input.value.trim()) {
+    input.value = '+34 ';
+  } else if (!input.value.trim().startsWith('+34')) {
+    input.value = normalizePhoneForSubmission(input.value);
+  }
+}
+
+function bindSpanishPhoneInput(input) {
+  if (!input || input.dataset.phoneBound === '1') return;
+  input.dataset.phoneBound = '1';
+  input.setAttribute('inputmode', 'tel');
+  input.setAttribute('autocomplete', 'tel');
+  input.placeholder = '+34 600 000 000';
+  input.addEventListener('focus', () => ensurePhonePrefixValue(input));
+  input.addEventListener('blur', () => {
+    if (!input.value.trim() || input.value.trim() === '+34') {
+      input.value = '+34 ';
+      return;
+    }
+    input.value = normalizePhoneForSubmission(input.value);
+  });
+}
+
+function setupPhoneInputs() {
+  ['f-phone', 'a-phone', 'detail-phone'].forEach((id) => {
+    const input = document.getElementById(id);
+    if (!input) return;
+    bindSpanishPhoneInput(input);
+    if (!input.value.trim()) {
+      input.value = '+34 ';
+    }
+  });
 }
 
 async function adminApi(path, options = {}) {
@@ -1271,6 +1327,9 @@ function openLoginModal() {
 function closeLoginModal() {
   document.getElementById('login-modal').classList.remove('open');
   document.getElementById('login-error').classList.remove('show');
+  if (window.location.pathname === '/admin' && !state.isLoggedIn) {
+    window.location.href = '/';
+  }
 }
 
 async function doLogin() {
@@ -1283,12 +1342,14 @@ async function doLogin() {
     return;
   }
   state.isLoggedIn = true;
+  setAdminSession(true);
   closeLoginModal();
   await showAdminPanel();
 }
 
 function logout() {
   state.isLoggedIn = false;
+  setAdminSession(false);
   stopAdminLiveRefresh();
   if (window.location.pathname === '/admin') {
     window.location.href = '/';
@@ -1470,6 +1531,7 @@ async function renderDetailEditor(appointment) {
   });
   dateInput.addEventListener('change', async () => refreshDetailAvailability(''));
   await refreshDetailAvailability(appointment.time);
+  setupPhoneInputs();
 }
 
 async function openDetail(id) {
@@ -1493,7 +1555,7 @@ async function saveDetail() {
   const service = getAdminServiceById(document.getElementById('detail-service').value) || getServiceById(document.getElementById('detail-service').value);
   const payload = {
     name: document.getElementById('detail-name').value.trim(),
-    phone: document.getElementById('detail-phone').value.trim(),
+    phone: normalizePhoneForSubmission(document.getElementById('detail-phone').value),
     date: document.getElementById('detail-date').value,
     time: document.getElementById('detail-time').value,
     service_id: service?.id,
@@ -1524,7 +1586,7 @@ async function submitBooking() {
   const service = getServiceById(document.getElementById('f-service').value);
   const payload = {
     name: document.getElementById('f-name').value.trim(),
-    phone: document.getElementById('f-phone').value.trim(),
+    phone: normalizePhoneForSubmission(document.getElementById('f-phone').value),
     date: document.getElementById('f-date').value,
     time: document.getElementById('f-time').value,
     service_id: service?.id,
@@ -1545,7 +1607,7 @@ async function submitBooking() {
     button.disabled = false;
     button.textContent = 'Solicitar cita';
     document.getElementById('f-name').value = '';
-    document.getElementById('f-phone').value = '';
+    document.getElementById('f-phone').value = '+34 ';
     document.getElementById('f-date').value = '';
     document.getElementById('f-time').innerHTML = '<option value="">Seleccione fecha y servicio</option>';
     document.getElementById('f-time').disabled = true;
@@ -1567,7 +1629,7 @@ async function adminCreateAppointment() {
   const service = getServiceById(document.getElementById('a-service').value);
   const payload = {
     name: document.getElementById('a-name').value.trim(),
-    phone: document.getElementById('a-phone').value.trim(),
+    phone: normalizePhoneForSubmission(document.getElementById('a-phone').value),
     date: document.getElementById('a-date').value,
     time: document.getElementById('a-time').value,
     service_id: service?.id,
@@ -1587,7 +1649,7 @@ async function adminCreateAppointment() {
     renderAppointmentsTable();
     updatePendingBadge();
     document.getElementById('a-name').value = '';
-    document.getElementById('a-phone').value = '';
+    document.getElementById('a-phone').value = '+34 ';
     document.getElementById('a-date').value = '';
     document.getElementById('a-time').innerHTML = '<option value="">Seleccione fecha y servicio</option>';
     document.getElementById('a-time').disabled = true;
@@ -1617,9 +1679,11 @@ async function saveBusinessConfig() {
 (function init() {
   const isAdminRoute = window.location.pathname === '/admin';
   const today = getCurrentDateInMadrid();
+  state.isLoggedIn = hasAdminSession();
   document.getElementById('f-date').min = today;
   document.getElementById('a-date').min = today;
   ensureBusinessSaveButton();
+  setupPhoneInputs();
   updateTodayLabel();
   document.getElementById('f-time').innerHTML = '<option value="">Seleccione fecha y servicio</option>';
   document.getElementById('f-time').disabled = true;
@@ -1637,7 +1701,16 @@ async function saveBusinessConfig() {
   showPage(isAdminRoute ? 'booking' : 'booking');
   if (isAdminRoute) {
     document.getElementById('main-nav').style.display = 'none';
-    openLoginModal();
+    if (state.isLoggedIn) {
+      showAdminPanel().catch((error) => {
+        setAdminSession(false);
+        state.isLoggedIn = false;
+        showToast(error.message, 'error');
+        openLoginModal();
+      });
+    } else {
+      openLoginModal();
+    }
   }
   resetServiceForm();
   loadPublicData().catch((error) => showToast(error.message, 'error'));
