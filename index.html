@@ -258,6 +258,16 @@
     .channel-phone { background: #e7eff8; }
     .empty-state { padding: 28px; text-align: center; color: var(--muted); }
     .service-admin-grid { display: grid; grid-template-columns: minmax(0, 360px) minmax(0, 1fr); gap: 18px; width: 100%; }
+    .client-summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
+    .client-stat { padding: 16px; border-radius: 16px; background: rgba(164,123,50,0.08); border: 1px solid rgba(164,123,50,0.16); }
+    .client-stat-label { display: block; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+    .client-stat-value { display: block; margin-top: 8px; font-size: 22px; }
+    .client-detail-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); gap: 18px; }
+    .client-meta-list { display: grid; gap: 12px; }
+    .client-meta-item { padding: 14px 16px; border-radius: 16px; background: #faf5eb; border: 1px solid rgba(0,0,0,0.06); }
+    .client-history-table { margin-top: 14px; }
+    .client-link { color: inherit; text-decoration: none; cursor: pointer; }
+    .client-link:hover { color: var(--brand-dark); }
     .service-list-admin { display: grid; gap: 12px; }
     .service-list-item {
       border: 1px solid rgba(0,0,0,0.08);
@@ -380,6 +390,8 @@
       .admin-topbar { margin-bottom: 16px; }
       .admin-topbar .btn-primary { width: 100%; }
       .mobile-admin-nav button { padding: 10px 12px; font-size: 13px; }
+      .client-summary-grid,
+      .client-detail-grid { grid-template-columns: 1fr; }
       .admin-page-title { font-size: 24px; }
       .panel-card-title { font-size: 22px; }
       .stat-card { padding: 16px; }
@@ -516,15 +528,16 @@
         <div class="sidebar-logo">ASH<span>F</span>ORD</div>
         <div class="sidebar-section">Principal</div>
         <div class="sidebar-nav">
-          <button class="sidebar-item active" onclick="switchView('dashboard', this)">Dashboard</button>
-          <button class="sidebar-item" onclick="switchView('appointments', this)">Citas <span class="sidebar-badge" id="pending-badge">0</span></button>
-          <button class="sidebar-item" onclick="switchView('new-appointment', this)">Nueva cita</button>
-          <button class="sidebar-item" onclick="switchView('services', this)">Servicios</button>
+          <button class="sidebar-item active" data-view="dashboard" onclick="switchView('dashboard', this)">Dashboard</button>
+          <button class="sidebar-item" data-view="appointments" onclick="switchView('appointments', this)">Citas <span class="sidebar-badge" id="pending-badge">0</span></button>
+          <button class="sidebar-item" data-view="clients" onclick="switchView('clients', this)">Clientes</button>
+          <button class="sidebar-item" data-view="new-appointment" onclick="switchView('new-appointment', this)">Nueva cita</button>
+          <button class="sidebar-item" data-view="services" onclick="switchView('services', this)">Servicios</button>
         </div>
         <div class="sidebar-section">Configuracion</div>
         <div class="sidebar-nav">
-          <button class="sidebar-item" onclick="switchView('business', this)">Negocio</button>
-          <button class="sidebar-item" onclick="switchView('integrations', this)">Integraciones</button>
+          <button class="sidebar-item" data-view="business" onclick="switchView('business', this)">Negocio</button>
+          <button class="sidebar-item" data-view="integrations" onclick="switchView('integrations', this)">Integraciones</button>
         </div>
         <div class="sidebar-footer">
           <div class="sidebar-user">
@@ -538,6 +551,7 @@
         <div class="mobile-admin-nav">
           <button class="active" data-view="dashboard" onclick="switchView('dashboard', this)">Dashboard</button>
           <button data-view="appointments" onclick="switchView('appointments', this)">Citas</button>
+          <button data-view="clients" onclick="switchView('clients', this)">Clientes</button>
           <button data-view="new-appointment" onclick="switchView('new-appointment', this)">Nueva</button>
           <button data-view="services" onclick="switchView('services', this)">Servicios</button>
           <button data-view="business" onclick="switchView('business', this)">Negocio</button>
@@ -549,7 +563,7 @@
               <div class="admin-page-title">Panel de gestion</div>
               <div class="admin-date" id="today-label"></div>
             </div>
-            <button class="btn-primary" onclick="switchView('new-appointment', document.querySelectorAll('.sidebar-item')[2])">+ Nueva cita</button>
+            <button class="btn-primary" onclick="switchView('new-appointment', document.querySelector('.sidebar-item[data-view=&quot;new-appointment&quot;]'))">+ Nueva cita</button>
           </div>
           <div class="stats-grid">
             <div class="stat-card"><span class="stat-card-label">Citas hoy</span><span class="stat-card-value" id="stat-today">0</span></div>
@@ -583,6 +597,25 @@
               </div>
             </div>
             <div id="appointments-table-wrap"></div>
+          </div>
+        </div>
+
+        <div class="admin-view" id="view-clients">
+          <div class="admin-topbar">
+            <div>
+              <div class="admin-page-title">Clientes</div>
+              <div class="panel-help">Buscador, ficha individual e historial completo enlazado con las citas.</div>
+            </div>
+          </div>
+          <div class="panel-card">
+            <div class="panel-card-header">
+              <span class="panel-card-title">Base de clientes</span>
+              <div class="filters-bar">
+                <input type="text" class="filter-input" id="client-search" placeholder="Buscar por nombre o telefono" oninput="handleClientSearch()">
+                <button class="action-btn edit" onclick="clearClientSearch()">Limpiar</button>
+              </div>
+            </div>
+            <div id="clients-table-wrap"></div>
           </div>
         </div>
 
@@ -742,6 +775,20 @@
     </div>
   </div>
 
+  <div class="detail-modal" id="client-modal">
+    <div class="detail-box">
+      <div class="detail-box-header">
+        <div>
+          <div class="detail-box-title" id="client-title">Ficha de cliente</div>
+          <div class="panel-help" id="client-subtitle" style="margin-top:8px;"></div>
+        </div>
+        <button class="detail-close" onclick="closeClientDetail()">×</button>
+      </div>
+      <div class="detail-body" id="client-body"></div>
+      <div class="detail-footer" id="client-footer"></div>
+    </div>
+  </div>
+
   <div class="toast" id="toast"></div>
 
   <script>
@@ -750,6 +797,7 @@ const ADMIN_SESSION_KEY = 'ashford_admin_session';
 const state = {
   services: [],
   adminServices: [],
+  clients: [],
   faqs: [],
   businessInfo: {},
   appointments: [],
@@ -757,6 +805,7 @@ const state = {
   stats: null,
   isLoggedIn: false,
   currentDetailId: null,
+  currentClientId: null,
   editingServiceId: null,
   liveRefreshTimer: null,
   liveRefreshPending: false,
@@ -903,6 +952,10 @@ function getAdminServiceById(id) {
   return state.adminServices.find((service) => service.id === id) || null;
 }
 
+function getAdminSidebarButton(view) {
+  return document.querySelector(`.sidebar-item[data-view="${view}"]`);
+}
+
 function renderNotifications() {
   const container = document.getElementById('notifications-list');
   if (!container) return;
@@ -1034,7 +1087,112 @@ function editService(id) {
   document.getElementById('svc-price').value = service.price ?? '';
   document.getElementById('svc-duration').value = service.duration_minutes ?? '';
   document.getElementById('svc-active').value = String(service.active ? 1 : 0);
-  switchView('services', document.querySelector('.sidebar-item:nth-child(4)'));
+  switchView('services', getAdminSidebarButton('services'));
+}
+
+function clientChannelLabel(channel) {
+  return {
+    web: 'Web',
+    whatsapp: 'WhatsApp',
+    phone: 'Llamada',
+    internal: 'Interno',
+  }[channel] || channel || '-';
+}
+
+function renderClientsTable() {
+  const wrap = document.getElementById('clients-table-wrap');
+  if (!wrap) return;
+  if (!state.clients.length) {
+    wrap.innerHTML = '<div class="empty-state"><span class="empty-state-icon">-</span><span class="empty-state-text">No hay clientes registrados</span></div>';
+    return;
+  }
+
+  wrap.innerHTML = `<table>
+    <thead><tr>
+      <th>Cliente</th><th>Telefono</th><th>Visitas</th><th>Citas</th><th>Ultima visita</th><th>Proxima cita</th><th>Canal habitual</th><th>Acciones</th>
+    </tr></thead>
+    <tbody>
+      ${state.clients.map((client) => `
+        <tr>
+          <td data-label="Cliente"><button class="action-btn edit client-link" onclick="openClientDetail('${client.id}')">${esc(client.name)}</button></td>
+          <td data-label="Telefono">${esc(client.phone)}</td>
+          <td data-label="Visitas">${client.total_visits || 0}</td>
+          <td data-label="Citas">${client.total_appointments || 0}</td>
+          <td data-label="Ultima visita">${client.last_visit ? `${formatDate(client.last_visit.date)} · ${esc(client.last_visit.service || '-')}` : '-'}</td>
+          <td data-label="Proxima cita">${client.next_appointment ? `${formatDate(client.next_appointment.date)} ${esc(client.next_appointment.time)} · ${esc(client.next_appointment.service || '-')}` : '-'}</td>
+          <td data-label="Canal">${esc(clientChannelLabel(client.preferred_channel))}</td>
+          <td data-label="Acciones"><button class="action-btn edit" onclick="openClientDetail('${client.id}')">Ver ficha</button></td>
+        </tr>
+      `).join('')}
+    </tbody>
+  </table>`;
+}
+
+async function loadClients(search = '') {
+  state.clients = await adminApi(`/api/admin/clients${search ? `?search=${encodeURIComponent(search)}` : ''}`);
+  renderClientsTable();
+}
+
+let clientSearchTimer = null;
+function handleClientSearch() {
+  clearTimeout(clientSearchTimer);
+  clientSearchTimer = setTimeout(async () => {
+    try {
+      await loadClients(document.getElementById('client-search').value.trim());
+    } catch (error) {
+      showToast(error.message, 'error');
+    }
+  }, 180);
+}
+
+function clearClientSearch() {
+  document.getElementById('client-search').value = '';
+  loadClients().catch((error) => showToast(error.message, 'error'));
+}
+
+function renderClientHistoryTable(history) {
+  if (!history.length) {
+    return '<div class="empty-state">Todavia no hay historial de citas para este cliente.</div>';
+  }
+  return `<div class="client-history-table">${buildTable(history)}</div>`;
+}
+
+async function openClientDetail(id) {
+  const client = await adminApi(`/api/admin/clients/${id}`);
+  state.currentClientId = id;
+  document.getElementById('client-title').textContent = client.name || 'Cliente';
+  document.getElementById('client-subtitle').textContent = `${client.phone || '-'} · Alta ${formatDateTime(client.created_at)}`;
+  document.getElementById('client-body').innerHTML = `
+    <div class="client-summary-grid">
+      <div class="client-stat"><span class="client-stat-label">Visitas realizadas</span><span class="client-stat-value">${client.total_visits || 0}</span></div>
+      <div class="client-stat"><span class="client-stat-label">Citas creadas</span><span class="client-stat-value">${client.total_appointments || 0}</span></div>
+      <div class="client-stat"><span class="client-stat-label">Ultima visita</span><span class="client-stat-value">${client.last_visit ? formatDate(client.last_visit.date) : '-'}</span></div>
+      <div class="client-stat"><span class="client-stat-label">Proxima cita</span><span class="client-stat-value">${client.next_appointment ? formatDate(client.next_appointment.date) : '-'}</span></div>
+    </div>
+    <div class="client-detail-grid">
+      <div class="client-meta-list">
+        <div class="client-meta-item"><strong>Ultimo servicio realizado</strong><div class="panel-help" style="margin-top:6px;">${esc(client.last_service || '-')}</div></div>
+        <div class="client-meta-item"><strong>Servicio mas frecuente</strong><div class="panel-help" style="margin-top:6px;">${esc(client.favorite_service || '-')}</div></div>
+        <div class="client-meta-item"><strong>Canal habitual</strong><div class="panel-help" style="margin-top:6px;">${esc(clientChannelLabel(client.preferred_channel))}</div></div>
+        <div class="client-meta-item"><strong>Ultimos canales usados</strong><div class="panel-help" style="margin-top:6px;">${(client.recent_channels || []).length ? client.recent_channels.map((item) => esc(clientChannelLabel(item))).join(', ') : '-'}</div></div>
+      </div>
+      <div class="client-meta-list">
+        <div class="client-meta-item"><strong>Proxima cita</strong><div class="panel-help" style="margin-top:6px;">${client.next_appointment ? `${formatDate(client.next_appointment.date)} a las ${esc(client.next_appointment.time)} · ${esc(client.next_appointment.service || '-')}` : 'Sin citas futuras.'}</div></div>
+        <div class="client-meta-item"><strong>Notas</strong><div class="panel-help" style="margin-top:6px; white-space:pre-wrap;">${esc(client.notes || 'Sin notas registradas.')}</div></div>
+      </div>
+    </div>
+    <div style="margin-top:20px;">
+      <div class="panel-card-title" style="font-size:22px; margin-bottom:10px;">Historial completo</div>
+      ${renderClientHistoryTable(client.history || [])}
+    </div>
+  `;
+  document.getElementById('client-footer').innerHTML = '<button class="action-btn edit" onclick="closeClientDetail()">Cerrar</button>';
+  document.getElementById('client-modal').classList.add('open');
+}
+
+function closeClientDetail() {
+  document.getElementById('client-modal').classList.remove('open');
+  state.currentClientId = null;
 }
 
 async function saveService() {
@@ -1218,17 +1376,19 @@ async function loadPublicData() {
 }
 
 async function loadAdminData() {
-  const [appointments, stats, configRows, services, notifications] = await Promise.all([
+  const [appointments, stats, configRows, services, notifications, clients] = await Promise.all([
     adminApi('/api/admin/appointments'),
     adminApi('/api/admin/stats'),
     adminApi('/api/admin/config'),
     adminApi('/api/admin/services'),
     adminApi('/api/admin/notifications'),
+    adminApi('/api/admin/clients'),
   ]);
   state.appointments = appointments;
   state.stats = stats;
   state.adminServices = services;
   state.notifications = notifications;
+  state.clients = clients;
   state.businessInfo = { ...state.businessInfo, ...normalizeBusinessInfo(configRows) };
   fillBusinessForm();
   setSidebarBusinessInfo();
@@ -1237,6 +1397,7 @@ async function loadAdminData() {
   updatePendingBadge();
   renderAdminServices();
   renderNotifications();
+  renderClientsTable();
 }
 
 function getActiveAdminViewName() {
@@ -1249,7 +1410,8 @@ function shouldRunLiveRefresh() {
   if (!document.getElementById('page-admin').classList.contains('active')) return false;
   if (document.hidden) return false;
   if (document.getElementById('detail-modal').classList.contains('open')) return false;
-  return ['dashboard', 'appointments', 'integrations'].includes(getActiveAdminViewName());
+  if (document.getElementById('client-modal').classList.contains('open')) return false;
+  return ['dashboard', 'appointments', 'integrations', 'clients'].includes(getActiveAdminViewName());
 }
 
 async function refreshAdminLiveData() {
@@ -1257,15 +1419,17 @@ async function refreshAdminLiveData() {
   state.liveRefreshPending = true;
 
   try {
-    const [appointments, stats, notifications] = await Promise.all([
+    const [appointments, stats, notifications, clients] = await Promise.all([
       adminApi('/api/admin/appointments'),
       adminApi('/api/admin/stats'),
       adminApi('/api/admin/notifications'),
+      adminApi(`/api/admin/clients${document.getElementById('client-search')?.value.trim() ? `?search=${encodeURIComponent(document.getElementById('client-search').value.trim())}` : ''}`),
     ]);
 
     state.appointments = appointments;
     state.stats = stats;
     state.notifications = notifications;
+    state.clients = clients;
 
     updatePendingBadge();
 
@@ -1279,6 +1443,9 @@ async function refreshAdminLiveData() {
     }
     if (activeView === 'integrations') {
       renderNotifications();
+    }
+    if (activeView === 'clients') {
+      renderClientsTable();
     }
   } catch (_error) {
     // Silent polling keeps the panel smooth if one request fails temporarily.
@@ -1397,10 +1564,11 @@ function switchView(name, element) {
     updateTodayLabel();
   }
   if (name === 'appointments') renderAppointmentsTable();
+  if (name === 'clients') renderClientsTable();
   if (name === 'business') fillBusinessForm();
   if (name === 'services') renderAdminServices();
   if (name === 'integrations') renderNotifications();
-  if (['dashboard', 'appointments', 'integrations'].includes(name)) {
+  if (['dashboard', 'appointments', 'integrations', 'clients'].includes(name)) {
     refreshAdminLiveData();
   }
 }
@@ -1426,7 +1594,7 @@ function buildTable(appointments) {
     <tbody>
       ${appointments.map((appointment) => `
         <tr onclick="openDetail('${appointment.id}')">
-          <td class="td-name" data-label="Cliente">${esc(appointment.name)}<div style="font-size:11px;color:var(--mid);margin-top:2px;">${esc(appointment.phone)}</div></td>
+          <td class="td-name" data-label="Cliente">${appointment.client_id ? `<button class="action-btn edit client-link" onclick="event.stopPropagation();openClientDetail('${appointment.client_id}')">${esc(appointment.name)}</button>` : esc(appointment.name)}<div style="font-size:11px;color:var(--mid);margin-top:2px;">${esc(appointment.phone)}</div></td>
           <td data-label="Fecha">${formatDate(appointment.date)}</td>
           <td data-label="Hora"><strong>${esc(appointment.time)}</strong></td>
           <td class="td-service" data-label="Servicio">${esc(appointment.service)}</td>
@@ -1724,6 +1892,7 @@ async function saveBusinessConfig() {
   document.getElementById('a-service').addEventListener('change', async () => { updateAdminPrice(); await refreshAdminCreateAvailability(); });
   document.getElementById('login-modal').addEventListener('click', function(event) { if (event.target === this) closeLoginModal(); });
   document.getElementById('detail-modal').addEventListener('click', function(event) { if (event.target === this) closeDetail(); });
+  document.getElementById('client-modal').addEventListener('click', function(event) { if (event.target === this) closeClientDetail(); });
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) refreshAdminLiveData();
   });

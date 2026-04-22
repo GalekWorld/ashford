@@ -167,10 +167,12 @@ async function initDb() {
   const schemaPath = path.join(__dirname, 'db', 'schema.sql');
   const schemaSql = fs.readFileSync(schemaPath, 'utf8');
   await query(schemaSql);
+  await query('ALTER TABLE clients ADD COLUMN IF NOT EXISTS phone_normalized TEXT');
   await query('ALTER TABLE notification_queue ADD COLUMN IF NOT EXISTS provider_message_id TEXT');
   await query('ALTER TABLE notification_queue ADD COLUMN IF NOT EXISTS error_message TEXT');
   await query('ALTER TABLE notification_queue ADD COLUMN IF NOT EXISTS response_payload TEXT');
   await seedData();
+  await backfillClientsFromAppointments();
 }
 
 async function seedData() {
@@ -241,6 +243,14 @@ function normalizePhoneNumber(phone) {
   return String(phone || '').replace(/\D/g, '');
 }
 
+function normalizeClientPhone(phone) {
+  const digits = normalizePhoneNumber(phone);
+  if (!digits) return '';
+  if (digits.length === 9) return `34${digits}`;
+  if (digits.length === 11 && digits.startsWith('34')) return digits;
+  return digits;
+}
+
 function adminAuth(req, res, next) {
   const auth = req.headers.authorization;
   if (!auth || auth !== `Bearer ${getAdminToken()}`) {
@@ -277,6 +287,148 @@ function getWhatsAppConfirmationTemplateLanguage(payload = {}) {
 
 function shouldUseBusinessTemplate(payload = {}) {
   return payload.use_template === true || process.env.WHATSAPP_USE_TEMPLATES === '1';
+}
+
+async function findClientByNormalizedPhone(phoneNormalized) {
+  if (!phoneNormalized) return null;
+  return queryOne(
+    `SELECT * FROM clients
+     WHERE phone_normalized = $1 OR REPLACE(REPLACE(phone, ' ', ''), '+', '') = $1
+     ORDER BY created_at ASC
+     LIMIT 1`,
+    [phoneNormalized]
+  );
+}
+
+async function upsertClientForAppointment({ name, phone, channel = 'web', notes = '', existingClientId = null }) {
+  const phoneNormalized = normalizeClientPhone(phone);
+  if (!phoneNormalized) return null;
+
+  let client = existingClientId ? await queryOne('SELECT * FROM clients WHERE id = $1', [existingClientId]) : null;
+  if (client && normalizeClientPhone(client.phone_normalized || client.phone) !== phoneNormalized) {
+    const matchedClient = await findClientByNormalizedPhone(phoneNormalized);
+    client = matchedClient || client;
+  }
+  if (!client) {
+    client = await findClientByNormalizedPhone(phoneNormalized);
+  }
+
+  if (!client) {
+    const id = uid();
+    await query(
+      `INSERT INTO clients (id, name, phone, phone_normalized, notes, source)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [id, String(name || '').trim() || phoneNormalized, String(phone || '').trim(), phoneNormalized, String(notes || '').trim(), normalizeChannel(channel, 'web')]
+    );
+    return queryOne('SELECT * FROM clients WHERE id = $1', [id]);
+  }
+
+  const nextName = String(name || '').trim() || client.name;
+  const nextPhone = String(phone || '').trim() || client.phone;
+  const nextNotes = client.notes || String(notes || '').trim() || '';
+  await query(
+    `UPDATE clients
+     SET name = $1,
+         phone = $2,
+         phone_normalized = $3,
+         notes = $4,
+         updated_at = NOW()
+     WHERE id = $5`,
+    [nextName, nextPhone, phoneNormalized, nextNotes, client.id]
+  );
+  return queryOne('SELECT * FROM clients WHERE id = $1', [client.id]);
+}
+
+async function backfillClientsFromAppointments() {
+  const clients = await queryAll('SELECT id, phone, phone_normalized FROM clients');
+  for (const client of clients) {
+    const normalized = normalizeClientPhone(client.phone_normalized || client.phone);
+    if (normalized && normalized !== client.phone_normalized) {
+      await query('UPDATE clients SET phone_normalized = $1, updated_at = NOW() WHERE id = $2', [normalized, client.id]);
+    }
+  }
+
+  const appointments = await queryAll(
+    `SELECT id, client_id, name, phone, channel, notes
+     FROM appointments
+     ORDER BY created_at ASC`
+  );
+
+  for (const appointment of appointments) {
+    const client = await upsertClientForAppointment({
+      name: appointment.name,
+      phone: appointment.phone,
+      channel: appointment.channel,
+      notes: appointment.notes,
+      existingClientId: appointment.client_id,
+    });
+    if (client && appointment.client_id !== client.id) {
+      await query('UPDATE appointments SET client_id = $1 WHERE id = $2', [client.id, appointment.id]);
+    }
+  }
+}
+
+async function buildClientSummary(client) {
+  const history = await queryAll(
+    `SELECT *
+     FROM appointments
+     WHERE client_id = $1
+     ORDER BY date DESC, time DESC, created_at DESC`,
+    [client.id]
+  );
+
+  const createdCount = history.length;
+  const completedStatuses = new Set(['done', 'completed']);
+  const completedVisits = history.filter((appointment) => completedStatuses.has(String(appointment.status || '').toLowerCase()));
+  const lastVisit = completedVisits
+    .slice()
+    .sort((left, right) => `${right.date} ${right.time}`.localeCompare(`${left.date} ${left.time}`))[0] || null;
+  const upcomingAppointments = history
+    .filter((appointment) => !['cancelled'].includes(String(appointment.status || '').toLowerCase()))
+    .filter((appointment) => `${appointment.date} ${appointment.time}` >= `${getCurrentDateInMadrid()} ${getCurrentTimeInMadrid()}`)
+    .sort((left, right) => `${left.date} ${left.time}`.localeCompare(`${right.date} ${right.time}`));
+  const nextAppointment = upcomingAppointments[0] || null;
+  const lastService = completedVisits[0]?.service || lastVisit?.service || null;
+
+  const serviceFrequencyMap = new Map();
+  for (const appointment of completedVisits) {
+    const key = appointment.service || '';
+    if (!key) continue;
+    serviceFrequencyMap.set(key, (serviceFrequencyMap.get(key) || 0) + 1);
+  }
+  const favoriteService = [...serviceFrequencyMap.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+
+  const channelFrequency = new Map();
+  for (const appointment of history) {
+    const key = appointment.channel || '';
+    if (!key) continue;
+    channelFrequency.set(key, (channelFrequency.get(key) || 0) + 1);
+  }
+  const recentChannels = [...new Set(history.map((appointment) => appointment.channel).filter(Boolean))].slice(0, 3);
+  const preferredChannel = [...channelFrequency.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+
+  return {
+    ...client,
+    total_appointments: createdCount,
+    total_visits: completedVisits.length,
+    last_visit: lastVisit ? {
+      date: lastVisit.date,
+      time: lastVisit.time,
+      service: lastVisit.service,
+    } : null,
+    next_appointment: nextAppointment ? {
+      id: nextAppointment.id,
+      date: nextAppointment.date,
+      time: nextAppointment.time,
+      service: nextAppointment.service,
+      status: nextAppointment.status,
+    } : null,
+    last_service: lastService,
+    favorite_service: favoriteService,
+    preferred_channel: preferredChannel,
+    recent_channels: recentChannels,
+    history,
+  };
 }
 
 function shouldUseConfirmationTemplate(payload = {}) {
@@ -696,6 +848,7 @@ app.post('/api/appointments', asyncHandler(async (req, res) => {
   const normalizedServiceName = serviceMatch.resolution?.officialService || serviceRecord.name;
   const normalizedChannel = normalizeChannel(channel, 'web');
   const mergedNotes = appendServiceNotes(notes || '', serviceMatch.resolution);
+  const normalizedPhone = normalizeClientPhone(phone);
 
   if (isPastAppointmentSlot(date, time)) {
     return res.status(409).json({ error: 'No puedes reservar una hora que ya ha pasado.' });
@@ -706,10 +859,16 @@ app.post('/api/appointments', asyncHandler(async (req, res) => {
   }
 
   const id = uid();
+  const client = await upsertClientForAppointment({
+    name,
+    phone: normalizedPhone,
+    channel: normalizedChannel,
+    notes: mergedNotes,
+  });
   await query(
-    `INSERT INTO appointments (id, name, phone, date, time, service, price, notes, channel, status)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-    [id, name, phone, date, time, normalizedServiceName, Number(serviceRecord.price ?? price ?? 0), mergedNotes || '', normalizedChannel, 'new']
+    `INSERT INTO appointments (id, client_id, name, phone, date, time, service, price, notes, channel, status)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+    [id, client?.id || null, name, normalizedPhone || phone, date, time, normalizedServiceName, Number(serviceRecord.price ?? price ?? 0), mergedNotes || '', normalizedChannel, 'new']
   );
 
   await logChange('appointment', id, 'status', '', 'new', normalizedChannel);
@@ -724,7 +883,7 @@ app.post('/api/appointments', asyncHandler(async (req, res) => {
         template_name: process.env.WHATSAPP_TEMPLATE_NAME || 'cita_peluquero_info',
       }),
       template_language: process.env.WHATSAPP_TEMPLATE_LANGUAGE || 'en',
-      template_params: [name, normalizedServiceName, date, time, phone],
+      template_params: [name, normalizedServiceName, date, time, normalizedPhone || phone],
     });
   }
   if (config.business_email) {
@@ -736,7 +895,7 @@ app.post('/api/appointments', asyncHandler(async (req, res) => {
   await queueNotification(id, 'new_appointment', 'n8n', 'webhook', {
     id,
     name,
-    phone,
+    phone: normalizedPhone || phone,
     date,
     time,
     service: normalizedServiceName,
@@ -891,6 +1050,7 @@ app.post('/api/admin/appointments', adminAuth, asyncHandler(async (req, res) => 
   const normalizedServiceName = serviceMatch.resolution?.officialService || serviceRecord.name;
   const normalizedChannel = normalizeChannel(channel, 'internal');
   const mergedNotes = appendServiceNotes(notes || '', serviceMatch.resolution);
+  const normalizedPhone = normalizeClientPhone(phone);
 
   if (isPastAppointmentSlot(date, time)) {
     return res.status(409).json({ error: 'No puedes registrar una cita en una hora ya pasada.' });
@@ -901,10 +1061,16 @@ app.post('/api/admin/appointments', adminAuth, asyncHandler(async (req, res) => 
   }
 
   const id = uid();
+  const client = await upsertClientForAppointment({
+    name,
+    phone: normalizedPhone,
+    channel: normalizedChannel,
+    notes: mergedNotes,
+  });
   await query(
-    `INSERT INTO appointments (id, name, phone, date, time, service, price, notes, channel, status)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-    [id, name, phone, date, time, normalizedServiceName, Number(serviceRecord.price ?? price ?? 0), mergedNotes || '', normalizedChannel, 'confirmed']
+    `INSERT INTO appointments (id, client_id, name, phone, date, time, service, price, notes, channel, status)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+    [id, client?.id || null, name, normalizedPhone || phone, date, time, normalizedServiceName, Number(serviceRecord.price ?? price ?? 0), mergedNotes || '', normalizedChannel, 'confirmed']
   );
 
   await logChange('appointment', id, 'status', '', 'confirmed', 'admin');
@@ -928,7 +1094,7 @@ app.patch('/api/admin/appointments/:id', adminAuth, asyncHandler(async (req, res
 
   const next = {
     name: req.body.name ?? current.name,
-    phone: req.body.phone ?? current.phone,
+    phone: req.body.phone ? normalizeClientPhone(req.body.phone) : current.phone,
     date: req.body.date ?? current.date,
     time: req.body.time ?? current.time,
     service: serviceMatch?.resolution?.officialService || serviceRecord?.name || current.service,
@@ -948,11 +1114,19 @@ app.patch('/api/admin/appointments/:id', adminAuth, asyncHandler(async (req, res
     }
   }
 
+  const client = await upsertClientForAppointment({
+    name: next.name,
+    phone: next.phone,
+    channel: next.channel,
+    notes: next.notes,
+    existingClientId: current.client_id,
+  });
+
   await query(
     `UPDATE appointments
-     SET name = $1, phone = $2, date = $3, time = $4, service = $5, price = $6, notes = $7, status = $8, channel = $9, updated_at = NOW()
-     WHERE id = $10`,
-    [next.name, next.phone, next.date, next.time, next.service, Number(next.price), next.notes || '', next.status, next.channel, req.params.id]
+     SET client_id = $1, name = $2, phone = $3, date = $4, time = $5, service = $6, price = $7, notes = $8, status = $9, channel = $10, updated_at = NOW()
+     WHERE id = $11`,
+    [client?.id || current.client_id || null, next.name, next.phone, next.date, next.time, next.service, Number(next.price), next.notes || '', next.status, next.channel, req.params.id]
   );
 
   for (const field of ['name', 'phone', 'date', 'time', 'service', 'price', 'notes', 'status', 'channel']) {
@@ -1002,6 +1176,58 @@ app.delete('/api/admin/appointments/:id/permanent', adminAuth, asyncHandler(asyn
   await query('DELETE FROM appointments WHERE id = $1', [req.params.id]);
   await logChange('appointment', req.params.id, 'deleted', JSON.stringify(current), '', 'admin');
   res.json({ ok: true });
+}));
+
+app.get('/api/admin/clients', adminAuth, asyncHandler(async (req, res) => {
+  const search = String(req.query.search || '').trim();
+  const clients = await queryAll(
+    search
+      ? `SELECT *
+         FROM clients
+         WHERE LOWER(name) LIKE LOWER($1)
+            OR phone LIKE $2
+            OR phone_normalized LIKE $2
+         ORDER BY updated_at DESC, created_at DESC
+         LIMIT 100`
+      : `SELECT *
+         FROM clients
+         ORDER BY updated_at DESC, created_at DESC
+         LIMIT 100`,
+    search ? [`%${search}%`, `%${normalizeClientPhone(search)}%`] : []
+  );
+
+  const summaries = [];
+  for (const client of clients) {
+    const summary = await buildClientSummary(client);
+    summaries.push({
+      id: summary.id,
+      name: summary.name,
+      phone: summary.phone,
+      created_at: summary.created_at,
+      total_visits: summary.total_visits,
+      total_appointments: summary.total_appointments,
+      last_visit: summary.last_visit,
+      next_appointment: summary.next_appointment,
+      favorite_service: summary.favorite_service,
+      preferred_channel: summary.preferred_channel,
+      notes: summary.notes || '',
+    });
+  }
+
+  res.json(summaries);
+}));
+
+app.get('/api/admin/clients/:id', adminAuth, asyncHandler(async (req, res) => {
+  const client = await queryOne('SELECT * FROM clients WHERE id = $1', [req.params.id]);
+  if (!client) return res.status(404).json({ error: 'Cliente no encontrado' });
+  res.json(await buildClientSummary(client));
+}));
+
+app.get('/api/admin/clients/:id/history', adminAuth, asyncHandler(async (req, res) => {
+  const client = await queryOne('SELECT * FROM clients WHERE id = $1', [req.params.id]);
+  if (!client) return res.status(404).json({ error: 'Cliente no encontrado' });
+  const summary = await buildClientSummary(client);
+  res.json(summary.history || []);
 }));
 
 app.get('/api/admin/stats', adminAuth, asyncHandler(async (_req, res) => {
