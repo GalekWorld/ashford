@@ -1389,6 +1389,16 @@ app.get('/api/admin/clients/:id/history', adminAuth, asyncHandler(async (req, re
   res.json(summary.history || []);
 }));
 
+app.delete('/api/admin/clients/:id', adminAuth, asyncHandler(async (req, res) => {
+  const client = await queryOne('SELECT * FROM clients WHERE id = $1', [req.params.id]);
+  if (!client) return res.status(404).json({ error: 'Cliente no encontrado' });
+
+  await query('UPDATE appointments SET client_id = NULL, updated_at = NOW() WHERE client_id = $1', [req.params.id]);
+  await query('DELETE FROM clients WHERE id = $1', [req.params.id]);
+  await logChange('client', req.params.id, 'deleted', JSON.stringify(client), '', 'admin');
+  res.json({ ok: true });
+}));
+
 app.get('/api/admin/stats', adminAuth, asyncHandler(async (_req, res) => {
   const today = getCurrentDateInMadrid();
   const revenueGenerated = Number((await queryOne(

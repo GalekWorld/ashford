@@ -1119,7 +1119,7 @@ function renderClientsTable() {
           <td data-label="Ultima visita">${client.last_visit ? `${formatDate(client.last_visit.date)} · ${esc(client.last_visit.service || '-')}` : '-'}</td>
           <td data-label="Proxima cita">${client.next_appointment ? `${formatDate(client.next_appointment.date)} ${esc(client.next_appointment.time)} · ${esc(client.next_appointment.service || '-')}` : '-'}</td>
           <td data-label="Canal">${esc(clientChannelLabel(client.preferred_channel))}</td>
-          <td data-label="Acciones"><button class="action-btn edit" onclick="openClientDetail('${client.id}')">Ver ficha</button></td>
+          <td data-label="Acciones"><button class="action-btn edit" onclick="openClientDetail('${client.id}')">Ver ficha</button><button class="action-btn reject" onclick="deleteClient('${client.id}')">Borrar</button></td>
         </tr>
       `).join('')}
     </tbody>
@@ -1155,6 +1155,27 @@ function renderClientHistoryTable(history) {
   return `<div class="client-history-table">${buildTable(history)}</div>`;
 }
 
+async function deleteClient(id) {
+  const client = state.clients.find((item) => item.id === id);
+  if (!client) return;
+  if (!window.confirm(`Borrar permanentemente la ficha de "${client.name}"? Las citas se conservaran sin enlazar al cliente.`)) return;
+
+  try {
+    await adminApi(`/api/admin/clients/${id}`, { method: 'DELETE' });
+    state.clients = state.clients.filter((item) => item.id !== id);
+    state.appointments = state.appointments.map((appointment) =>
+      appointment.client_id === id ? { ...appointment, client_id: null } : appointment
+    );
+    renderClientsTable();
+    renderAppointmentsTable();
+    refreshDashboard();
+    if (state.currentClientId === id) closeClientDetail();
+    showToast('Ficha de cliente borrada correctamente.');
+  } catch (error) {
+    showToast(error.message, 'error');
+  }
+}
+
 async function openClientDetail(id) {
   const client = await adminApi(`/api/admin/clients/${id}`);
   state.currentClientId = id;
@@ -1184,7 +1205,7 @@ async function openClientDetail(id) {
       ${renderClientHistoryTable(client.history || [])}
     </div>
   `;
-  document.getElementById('client-footer').innerHTML = '<button class="action-btn edit" onclick="closeClientDetail()">Cerrar</button>';
+  document.getElementById('client-footer').innerHTML = `<button class="action-btn reject" onclick="deleteClient('${client.id}')">Borrar ficha</button><button class="action-btn edit" onclick="closeClientDetail()">Cerrar</button>`;
   document.getElementById('client-modal').classList.add('open');
 }
 
