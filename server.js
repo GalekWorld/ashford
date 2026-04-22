@@ -4,6 +4,12 @@ const { Pool } = require('pg');
 const path = require('path');
 const crypto = require('crypto');
 const fs = require('fs');
+const {
+  normalizeChannel,
+  resolveRequestedService,
+  findCatalogServiceByOfficialName,
+  appendServiceNotes,
+} = require('./utils/booking-normalization');
 
 function loadEnvFile() {
   const envPath = path.join(__dirname, '.env');
@@ -29,13 +35,18 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 const DEFAULT_SERVICES = [
-  ['Corte Clasico', 'Corte tradicional con tijera y maquina', 18, 40],
-  ['Afeitado a Navaja', 'Afeitado clasico con navaja recta', 22, 35],
-  ['Corte + Afeitado', 'Combinacion completa de corte y afeitado', 35, 70],
-  ['Arreglo de Barba', 'Perfilado y arreglo de barba', 14, 25],
-  ['Fade & Degradado', 'Tecnica moderna de degradado', 22, 45],
-  ['Tratamiento Cuero', 'Tratamiento capilar y cuero cabelludo', 28, 55],
-  ['Pack Premium', 'Corte + afeitado + tratamiento capilar', 55, 90],
+  ['Corte de cabello', 'Corte de cabello', 17, 25],
+  ['Recorte de barba + perfilado a navaja con toallas calientes', 'Recorte de barba con navaja y toallas calientes', 14, 25],
+  ['Recorte de barba a máquina', 'Recorte de barba a maquina', 9, 25],
+  ['Camuflaje de canas', 'Camuflaje de canas', 19, 30],
+  ['Coloración permanente', 'Coloracion permanente', 25, 30],
+  ['Mechas', 'Servicio de mechas', 35, 30],
+  ['Tratamiento capilar', 'Tratamiento capilar', 12, 30],
+  ['Tratamiento hidratante barba', 'Tratamiento hidratante para barba', 10, 30],
+  ['Lavado de cabello', 'Lavado de cabello', 2, 30],
+  ['Corte niño', 'Corte de nino', 14, 30],
+  ['Corte jubilado y joven', 'Corte para jubilado y joven', 14, 30],
+  ['Corte y barba', 'Servicio combinado de corte y barba', 29, 30],
 ];
 
 const DEFAULT_CONFIG = [
@@ -314,7 +325,43 @@ async function updateNotificationRecord(notificationId, changes) {
 
 async function getServiceRecord(input) {
   if (!input) return null;
-  return queryOne('SELECT * FROM services WHERE id = $1 OR name = $1 LIMIT 1', [input]);
+  const exactRecord = await queryOne('SELECT * FROM services WHERE id = $1 OR name = $1 LIMIT 1', [input]);
+  if (exactRecord) {
+    return {
+      record: exactRecord,
+      resolution: {
+        rawInput: String(input || ''),
+        officialService: exactRecord.name,
+        matchedServices: [exactRecord.name],
+        additionalServices: [],
+        notesSuffix: '',
+      },
+    };
+  }
+
+  const services = await queryAll('SELECT * FROM services ORDER BY active DESC, name ASC');
+  const resolution = resolveRequestedService(input);
+  if (!resolution) return null;
+
+  const matchedRecord = findCatalogServiceByOfficialName(services, resolution.officialService);
+  if (!matchedRecord) {
+    const fallbackService = DEFAULT_SERVICES.find(([name]) => name === resolution.officialService);
+    if (!fallbackService) return null;
+    const [name, description, price, durationMinutes] = fallbackService;
+    return {
+      record: {
+        id: '',
+        name,
+        description,
+        price,
+        duration_minutes: durationMinutes,
+        active: 1,
+      },
+      resolution,
+    };
+  }
+
+  return { record: matchedRecord, resolution };
 }
 
 function toMinutes(time) {
@@ -364,7 +411,8 @@ function getActiveWindows(date, config) {
 }
 
 async function getAppointmentDuration(serviceName, config = null) {
-  const row = await queryOne('SELECT duration_minutes FROM services WHERE name = $1 LIMIT 1', [serviceName]);
+  const serviceMatch = await getServiceRecord(serviceName);
+  const row = serviceMatch?.record || null;
   const effectiveConfig = config || await getConfigMap();
   return Number(row?.duration_minutes || effectiveConfig.slot_duration_minutes || 30);
 }
@@ -640,10 +688,14 @@ app.post('/api/appointments', asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'Faltan campos obligatorios' });
   }
 
-  const serviceRecord = await getServiceRecord(service_id || service);
-  if (!serviceRecord) {
+  const serviceMatch = await getServiceRecord(service_id || service);
+  if (!serviceMatch?.record) {
     return res.status(400).json({ error: 'Servicio no valido' });
   }
+  const serviceRecord = serviceMatch.record;
+  const normalizedServiceName = serviceMatch.resolution?.officialService || serviceRecord.name;
+  const normalizedChannel = normalizeChannel(channel, 'web');
+  const mergedNotes = appendServiceNotes(notes || '', serviceMatch.resolution);
 
   if (isPastAppointmentSlot(date, time)) {
     return res.status(409).json({ error: 'No puedes reservar una hora que ya ha pasado.' });
@@ -657,28 +709,28 @@ app.post('/api/appointments', asyncHandler(async (req, res) => {
   await query(
     `INSERT INTO appointments (id, name, phone, date, time, service, price, notes, channel, status)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-    [id, name, phone, date, time, serviceRecord.name, Number(serviceRecord.price ?? price ?? 0), notes || '', channel, 'new']
+    [id, name, phone, date, time, normalizedServiceName, Number(serviceRecord.price ?? price ?? 0), mergedNotes || '', normalizedChannel, 'new']
   );
 
-  await logChange('appointment', id, 'status', '', 'new', channel);
+  await logChange('appointment', id, 'status', '', 'new', normalizedChannel);
 
   const config = await getConfigMap();
   const notifyTo = getBusinessNotificationPhone(config);
   if (notifyTo) {
     await queueNotification(id, 'new_appointment_barber', 'whatsapp', notifyTo, {
-      message: `Nueva cita solicitada: ${name} - ${serviceRecord.name} - ${date} ${time}`,
+      message: `Nueva cita solicitada: ${name} - ${normalizedServiceName} - ${date} ${time}`,
       use_template: shouldUseBusinessTemplate(),
       template_name: getWhatsAppTemplateName({
         template_name: process.env.WHATSAPP_TEMPLATE_NAME || 'cita_peluquero_info',
       }),
       template_language: process.env.WHATSAPP_TEMPLATE_LANGUAGE || 'en',
-      template_params: [name, serviceRecord.name, date, time, phone],
+      template_params: [name, normalizedServiceName, date, time, phone],
     });
   }
   if (config.business_email) {
     await queueNotification(id, 'new_appointment_barber', 'email', config.business_email, {
       subject: `Nueva cita - ${name}`,
-      html: `<p>${name} ha solicitado ${serviceRecord.name} el ${date} a las ${time}.</p>`,
+      html: `<p>${name} ha solicitado ${normalizedServiceName} el ${date} a las ${time}.</p>`,
     });
   }
   await queueNotification(id, 'new_appointment', 'n8n', 'webhook', {
@@ -687,8 +739,8 @@ app.post('/api/appointments', asyncHandler(async (req, res) => {
     phone,
     date,
     time,
-    service: serviceRecord.name,
-    channel,
+    service: normalizedServiceName,
+    channel: normalizedChannel,
   });
 
   console.log('ABOUT TO RESPOND OK');
@@ -831,10 +883,14 @@ app.post('/api/admin/appointments', adminAuth, asyncHandler(async (req, res) => 
     return res.status(400).json({ error: 'Faltan campos' });
   }
 
-  const serviceRecord = await getServiceRecord(service_id || service);
-  if (!serviceRecord) {
+  const serviceMatch = await getServiceRecord(service_id || service);
+  if (!serviceMatch?.record) {
     return res.status(400).json({ error: 'Servicio no valido' });
   }
+  const serviceRecord = serviceMatch.record;
+  const normalizedServiceName = serviceMatch.resolution?.officialService || serviceRecord.name;
+  const normalizedChannel = normalizeChannel(channel, 'internal');
+  const mergedNotes = appendServiceNotes(notes || '', serviceMatch.resolution);
 
   if (isPastAppointmentSlot(date, time)) {
     return res.status(409).json({ error: 'No puedes registrar una cita en una hora ya pasada.' });
@@ -848,7 +904,7 @@ app.post('/api/admin/appointments', adminAuth, asyncHandler(async (req, res) => 
   await query(
     `INSERT INTO appointments (id, name, phone, date, time, service, price, notes, channel, status)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-    [id, name, phone, date, time, serviceRecord.name, Number(serviceRecord.price ?? price ?? 0), notes || '', channel, 'confirmed']
+    [id, name, phone, date, time, normalizedServiceName, Number(serviceRecord.price ?? price ?? 0), mergedNotes || '', normalizedChannel, 'confirmed']
   );
 
   await logChange('appointment', id, 'status', '', 'confirmed', 'admin');
@@ -861,9 +917,10 @@ app.patch('/api/admin/appointments/:id', adminAuth, asyncHandler(async (req, res
 
   const isServiceBeingChanged = req.body.service_id !== undefined || req.body.service !== undefined;
   const isScheduleBeingChanged = isServiceBeingChanged || req.body.date !== undefined || req.body.time !== undefined;
-  const serviceRecord = isServiceBeingChanged
+  const serviceMatch = isServiceBeingChanged
     ? await getServiceRecord(req.body.service_id || req.body.service)
     : await getServiceRecord(current.service);
+  const serviceRecord = serviceMatch?.record || null;
 
   if (isServiceBeingChanged && !serviceRecord) {
     return res.status(400).json({ error: 'Servicio no valido' });
@@ -874,11 +931,11 @@ app.patch('/api/admin/appointments/:id', adminAuth, asyncHandler(async (req, res
     phone: req.body.phone ?? current.phone,
     date: req.body.date ?? current.date,
     time: req.body.time ?? current.time,
-    service: serviceRecord?.name || current.service,
+    service: serviceMatch?.resolution?.officialService || serviceRecord?.name || current.service,
     price: req.body.price ?? serviceRecord?.price ?? current.price,
-    notes: req.body.notes ?? current.notes,
+    notes: req.body.notes !== undefined ? appendServiceNotes(req.body.notes, serviceMatch?.resolution) : current.notes,
     status: req.body.status ?? current.status,
-    channel: req.body.channel ?? current.channel,
+    channel: req.body.channel !== undefined ? normalizeChannel(req.body.channel, current.channel) : current.channel,
   };
 
   if (isScheduleBeingChanged) {
@@ -934,6 +991,16 @@ app.delete('/api/admin/appointments/:id', adminAuth, asyncHandler(async (req, re
     [req.params.id]
   );
   await logChange('appointment', req.params.id, 'status', '', 'cancelled', 'admin');
+  res.json({ ok: true });
+}));
+
+app.delete('/api/admin/appointments/:id/permanent', adminAuth, asyncHandler(async (req, res) => {
+  const current = await queryOne('SELECT * FROM appointments WHERE id = $1', [req.params.id]);
+  if (!current) return res.status(404).json({ error: 'No encontrada' });
+
+  await query('DELETE FROM notification_queue WHERE appointment_id = $1', [req.params.id]);
+  await query('DELETE FROM appointments WHERE id = $1', [req.params.id]);
+  await logChange('appointment', req.params.id, 'deleted', JSON.stringify(current), '', 'admin');
   res.json({ ok: true });
 }));
 

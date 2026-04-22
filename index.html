@@ -838,6 +838,16 @@ function normalizePhoneForSubmission(value) {
   return `+34${digits}`;
 }
 
+function normalizeComparableText(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function ensurePhonePrefixValue(input) {
   if (!input) return;
   if (!input.value.trim()) {
@@ -1428,6 +1438,7 @@ function buildTable(appointments) {
             ${appointment.status !== 'pending' && appointment.status !== 'done' ? `<button class="action-btn edit" onclick="changeStatus('${appointment.id}','pending')">Pendiente</button>` : ''}
             ${appointment.status !== 'cancelled' && appointment.status !== 'done' ? `<button class="action-btn reject" onclick="changeStatus('${appointment.id}','cancelled')">Cancelar</button>` : ''}
             ${appointment.status !== 'done' ? `<button class="action-btn done" onclick="changeStatus('${appointment.id}','done')">Realizada</button>` : ''}
+            <button class="action-btn reject" onclick="deleteAppointment('${appointment.id}')">Borrar</button>
             <button class="action-btn edit" onclick="openDetail('${appointment.id}')">Editar</button>
           </td>
         </tr>
@@ -1496,7 +1507,25 @@ async function changeStatus(id, status) {
 
 function detailServiceOptions(selectedName) {
   const source = state.adminServices.length ? state.adminServices : state.services;
-  return source.map((service) => `<option value="${service.id}" ${service.name === selectedName ? 'selected' : ''}>${esc(service.name)} - ${service.price} EUR</option>`).join('');
+  return source.map((service) => `<option value="${service.id}" ${normalizeComparableText(service.name) === normalizeComparableText(selectedName) ? 'selected' : ''}>${esc(service.name)} - ${service.price} EUR</option>`).join('');
+}
+
+async function deleteAppointment(id) {
+  const appointment = state.appointments.find((item) => item.id === id);
+  if (!appointment) return;
+  if (!window.confirm(`Borrar permanentemente la cita de "${appointment.name}"?`)) return;
+
+  try {
+    await adminApi(`/api/admin/appointments/${id}/permanent`, { method: 'DELETE' });
+    state.appointments = state.appointments.filter((item) => item.id !== id);
+    refreshDashboard();
+    renderAppointmentsTable();
+    updatePendingBadge();
+    if (state.currentDetailId === id) closeDetail();
+    showToast('Cita borrada correctamente.');
+  } catch (error) {
+    showToast(error.message, 'error');
+  }
 }
 
 async function renderDetailEditor(appointment) {
@@ -1541,7 +1570,7 @@ async function openDetail(id) {
   document.getElementById('detail-title').textContent = appointment.name;
   document.getElementById('detail-badge-wrap').innerHTML = badgeHtml(appointment.status);
   await renderDetailEditor(appointment);
-  document.getElementById('detail-footer').innerHTML = '<button class="action-btn accept" onclick="saveDetail()">Guardar cambios</button><button class="action-btn edit" onclick="changeStatus(\'' + appointment.id + '\',\'pending\')">Pendiente</button><button class="action-btn accept" onclick="changeStatus(\'' + appointment.id + '\',\'confirmed\')">Confirmar</button><button class="action-btn reject" onclick="changeStatus(\'' + appointment.id + '\',\'cancelled\')">Cancelar</button><button class="action-btn done" onclick="changeStatus(\'' + appointment.id + '\',\'done\')">Realizada</button>';
+  document.getElementById('detail-footer').innerHTML = '<button class="action-btn accept" onclick="saveDetail()">Guardar cambios</button><button class="action-btn edit" onclick="changeStatus(\'' + appointment.id + '\',\'pending\')">Pendiente</button><button class="action-btn accept" onclick="changeStatus(\'' + appointment.id + '\',\'confirmed\')">Confirmar</button><button class="action-btn reject" onclick="changeStatus(\'' + appointment.id + '\',\'cancelled\')">Cancelar</button><button class="action-btn done" onclick="changeStatus(\'' + appointment.id + '\',\'done\')">Realizada</button><button class="action-btn reject" onclick="deleteAppointment(\'' + appointment.id + '\')">Borrar</button>';
   document.getElementById('detail-modal').classList.add('open');
 }
 

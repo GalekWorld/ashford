@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "migrate:sqlite-to-postgres": "node scripts/migrate-sqlite-to-postgres.js"
+    "migrate:sqlite-to-postgres": "node scripts/migrate-sqlite-to-postgres.js",
+    "test:booking-normalization": "node scripts/test-booking-normalization.js"
   },
   "dependencies": {
     "better-sqlite3": "^12.9.0",
