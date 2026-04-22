@@ -792,7 +792,6 @@
   <div class="toast" id="toast"></div>
 
   <script>
-const AUTH = { user: 'admin', pass: 'ashford2024', token: 'ashford-admin-token' };
 const ADMIN_SESSION_KEY = 'ashford_admin_session';
 const state = {
   services: [],
@@ -863,7 +862,6 @@ async function api(path, options = {}) {
 function adminHeaders(extra = {}) {
   return {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${AUTH.token}`,
     ...extra,
   };
 }
@@ -934,7 +932,7 @@ function setupPhoneInputs() {
 }
 
 async function adminApi(path, options = {}) {
-  return api(path, { ...options, headers: adminHeaders(options.headers || {}) });
+  return api(path, { ...options, credentials: 'same-origin', headers: adminHeaders(options.headers || {}) });
 }
 
 function normalizeBusinessInfo(raw) {
@@ -1510,9 +1508,16 @@ function closeLoginModal() {
 }
 
 async function doLogin() {
-  const user = document.getElementById('login-user').value;
+  const user = document.getElementById('login-user').value.trim();
   const pass = document.getElementById('login-pass').value;
-  if (user !== AUTH.user || pass !== AUTH.pass) {
+  try {
+    await api('/api/admin/auth/login', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user, password: pass }),
+    });
+  } catch (_error) {
     document.getElementById('login-error').classList.add('show');
     document.getElementById('login-pass').value = '';
     document.getElementById('login-pass').focus();
@@ -1528,6 +1533,7 @@ function logout() {
   state.isLoggedIn = false;
   setAdminSession(false);
   stopAdminLiveRefresh();
+  api('/api/admin/auth/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
   if (window.location.pathname === '/admin') {
     window.location.href = '/';
     return;
@@ -1900,7 +1906,7 @@ async function saveBusinessConfig() {
   if (isAdminRoute) {
     document.getElementById('main-nav').style.display = 'none';
     if (state.isLoggedIn) {
-      showAdminPanel().catch((error) => {
+      adminApi('/api/admin/auth/me').then(() => showAdminPanel()).catch((error) => {
         setAdminSession(false);
         state.isLoggedIn = false;
         showToast(error.message, 'error');

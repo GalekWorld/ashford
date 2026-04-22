@@ -89,6 +89,18 @@ function getAdminToken() {
   return process.env.ADMIN_TOKEN || 'ashford-admin-token';
 }
 
+function getAdminUsername() {
+  return process.env.ADMIN_USER || 'admin';
+}
+
+function getAdminPassword() {
+  return process.env.ADMIN_PASSWORD || 'ashford2024';
+}
+
+function getAdminSessionSecret() {
+  return process.env.ADMIN_SESSION_SECRET || process.env.ADMIN_TOKEN || 'ashford-admin-secret';
+}
+
 function getWhatsAppVerifyToken() {
   return process.env.WHATSAPP_VERIFY_TOKEN || 'ashford_verify_token_123';
 }
@@ -267,6 +279,63 @@ function normalizeClientPhone(phone) {
   return digits;
 }
 
+function parseCookies(req) {
+  const header = req.headers.cookie || '';
+  return Object.fromEntries(
+    header
+      .split(';')
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .map((part) => {
+        const separator = part.indexOf('=');
+        if (separator === -1) return [part, ''];
+        return [part.slice(0, separator), decodeURIComponent(part.slice(separator + 1))];
+      })
+  );
+}
+
+function createAdminSessionToken() {
+  const payload = {
+    user: getAdminUsername(),
+    exp: Date.now() + (1000 * 60 * 60 * 12),
+  };
+  const encoded = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const signature = crypto.createHmac('sha256', getAdminSessionSecret()).update(encoded).digest('base64url');
+  return `${encoded}.${signature}`;
+}
+
+function verifyAdminSessionToken(token) {
+  if (!token || !token.includes('.')) return false;
+  const [encoded, signature] = token.split('.');
+  if (!encoded || !signature) return false;
+  const expectedSignature = crypto.createHmac('sha256', getAdminSessionSecret()).update(encoded).digest('base64url');
+  if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) {
+    return false;
+  }
+  const payload = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'));
+  return payload?.user === getAdminUsername() && Number(payload?.exp || 0) > Date.now();
+}
+
+function getAdminSessionCookie(req) {
+  return parseCookies(req).admin_session || '';
+}
+
+function buildAdminSessionCookie(token, expiresAt = null) {
+  const parts = [
+    `admin_session=${token}`,
+    'Path=/',
+    'HttpOnly',
+    'SameSite=Lax',
+  ];
+  if (process.env.NODE_ENV === 'production') {
+    parts.push('Secure');
+  }
+  if (expiresAt) {
+    parts.push(`Expires=${new Date(expiresAt).toUTCString()}`);
+  }
+  return parts.join('; ');
+}
+
 const SQL_NORMALIZED_CLIENT_PHONE = `
   CASE
     WHEN regexp_replace(COALESCE(phone, ''), '\\D', '', 'g') LIKE '34%' THEN regexp_replace(COALESCE(phone, ''), '\\D', '', 'g')
@@ -277,7 +346,9 @@ const SQL_NORMALIZED_CLIENT_PHONE = `
 
 function adminAuth(req, res, next) {
   const auth = req.headers.authorization;
-  if (!auth || auth !== `Bearer ${getAdminToken()}`) {
+  const hasBearerToken = auth && auth === `Bearer ${getAdminToken()}`;
+  const hasSessionCookie = verifyAdminSessionToken(getAdminSessionCookie(req));
+  if (!hasBearerToken && !hasSessionCookie) {
     return res.status(401).json({ error: 'No autorizado' });
   }
   next();
@@ -984,6 +1055,27 @@ app.get('/api/admin/services', adminAuth, asyncHandler(async (_req, res) => {
   res.json(await queryAll('SELECT * FROM services ORDER BY active DESC, price ASC, name ASC'));
 }));
 
+app.post('/api/admin/auth/login', asyncHandler(async (req, res) => {
+  const user = String(req.body?.user || '').trim();
+  const password = String(req.body?.password || '');
+  if (user !== getAdminUsername() || password !== getAdminPassword()) {
+    return res.status(401).json({ error: 'Credenciales incorrectas' });
+  }
+
+  const token = createAdminSessionToken();
+  res.setHeader('Set-Cookie', buildAdminSessionCookie(token, Date.now() + (1000 * 60 * 60 * 12)));
+  res.json({ ok: true });
+}));
+
+app.post('/api/admin/auth/logout', asyncHandler(async (_req, res) => {
+  res.setHeader('Set-Cookie', buildAdminSessionCookie('', 0));
+  res.json({ ok: true });
+}));
+
+app.get('/api/admin/auth/me', adminAuth, asyncHandler(async (_req, res) => {
+  res.json({ ok: true, user: getAdminUsername() });
+}));
+
 app.post('/api/admin/services', adminAuth, asyncHandler(async (req, res) => {
   const { name, description = '', price, duration_minutes, active = 1 } = req.body;
   if (!name || price === undefined || duration_minutes === undefined) {
@@ -1235,20 +1327,32 @@ app.delete('/api/admin/appointments/:id/permanent', adminAuth, asyncHandler(asyn
 app.get('/api/admin/clients', adminAuth, asyncHandler(async (req, res) => {
   const search = String(req.query.search || '').trim();
   const hasPhoneNormalized = await clientPhoneNormalizedColumnExists();
+  const phoneSearch = normalizeClientPhone(search);
+  const clauses = [];
+  const params = [];
+
+  if (search) {
+    params.push(`%${search}%`);
+    clauses.push(`LOWER(name) LIKE LOWER($${params.length})`);
+    if (phoneSearch) {
+      params.push(`%${phoneSearch}%`);
+      clauses.push(`phone LIKE $${params.length}`);
+      clauses.push(`${hasPhoneNormalized ? 'phone_normalized' : SQL_NORMALIZED_CLIENT_PHONE} LIKE $${params.length}`);
+    }
+  }
+
   const clients = await queryAll(
     search
       ? `SELECT *
          FROM clients
-         WHERE LOWER(name) LIKE LOWER($1)
-            OR phone LIKE $2
-            OR ${(hasPhoneNormalized ? 'phone_normalized' : SQL_NORMALIZED_CLIENT_PHONE)} LIKE $2
+         WHERE ${clauses.join(' OR ')}
          ORDER BY updated_at DESC, created_at DESC
          LIMIT 100`
       : `SELECT *
          FROM clients
          ORDER BY updated_at DESC, created_at DESC
          LIMIT 100`,
-    search ? [`%${search}%`, `%${normalizeClientPhone(search)}%`] : []
+    params
   );
 
   const summaries = [];
